@@ -1,0 +1,16 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../mepa_v2025.06"
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"*.dtsi": "c",
+			"compare": "c"
+		}
+	}
+}
