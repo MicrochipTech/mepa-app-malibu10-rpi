@@ -450,15 +450,12 @@ bool get_valid_port_no(mepa_port_no_t* port_no, char port_no_str[])
         {
             printf (" *************************************\n");
             printf (" The following commands are supported:\n");
-            // printf (" debug  <port_no>  - Sets PHY API to output Debug \n");
-            // printf (" dump <port_no> - Dump Reg 0-31 Pages:std/ext1/ext2/ext3/gpio/1588/macsec/1588_reg/macsec_rng/ext_rng for Port \n");
-            // printf (" rdext <port_no> <page> <addr> - Read Extended Page - where page=1,2,3,4,0x10,0x1588,0x2A30,0x52B5 - <addr> 0-31 \n");
-            // printf (" wrext <port_no> <page> <addr> <value> - Write Ext Page - page=1,2,3,4,0x10,0x1588,0x2A30,0x52B5 - <addr> 0-31 - Value MUST be in hex \n");
-            // printf (" ----------------------------------------  |  ------------------------------------------------------- \n");
-            // printf (" spird    <port_no> <dev> <addr>           |  spiwr       <port_no> <dev> <addr> <value> - Value MUST be in hex\n");
-            // printf (" getmedia <port_no> - Get Media i/f        |  setmedia    <port_no> - Set Media I/F for port \n");
-            // printf (" getmac   <port_no> - Get MAC i/f          |  setmac      <port_no> - Set MAC I/F for port \n");
-            // printf (" ----------------------------------------  |  ------------------------------------------------------- \n");
+            printf (" dump <port_no> - Dump PHY, PHY_TS, MACsec, or ALL register groups for Port \n");
+            printf (" ----------------------------------------  |  ------------------------------------------------------- \n");
+            printf (" spird    <port_no> <dev> <addr>           |  spiwr       <port_no> <dev> <addr> <value> - Value MUST be in hex\n");
+            printf (" get_lmedia <port_no> - Get Line Media I/F |  set_lmedia  <port_no> - Set Line Media I/F for port \n");
+            printf (" get_hmedia <port_no> - Get Host Media I/F |  set_hmedia  <port_no> - Set Host Media I/F for port \n");
+            printf (" ----------------------------------------  |  ------------------------------------------------------- \n");
             // printf (" 10g_kr   <port_no> - 10G Base KR          |  synce       <port_no> - Sync-E Config   \n");
             // printf (" prbs     <port_no> - PRBS                 |  obuf        <port_no> - Output Buf Control  \n");
             printf (" status   <port_no> - Rtn PHY Link status  |  vscope      <port_no> - Config for VSCOPE FAST/FULL SCAN \n");
