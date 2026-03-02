@@ -2,7 +2,7 @@
  * Custom program for VSC8258 using MEPA.
  * Code is loosely-based on phy_demo_appl/vtss_appl_10g_phy_malibu.c
  *
- * Copyright (C) 2025 Microchip Technology Inc.
+ * Copyright (C) 2026 Microchip Technology Inc.
  *
  * Author: MJ Neri https://support.microchip.com
  *
@@ -50,6 +50,12 @@
 #define APPL_PORT_COUNT         4       // VSC8258 is a 4-port PHY
 #define APPL_BASE_PORT          0       // Port 0 is used as the base port.
 
+#define PHY_MODE_10G_LAN        0
+#define PHY_MODE_1G_LAN         1
+#define PHY_MODE_10G_WAN        2
+#define PHY_MODE_10G_RPTR       3
+#define PHY_MODE_1G_RPTR        4
+
 // Macros for debug levels:
 // APPL_TRACE_LVL_NOISE
 // APPL_TRACE_LVL_DEBUG
@@ -61,22 +67,11 @@
 // Section: Function prototypes
 // *****************************************************************************
 // *****************************************************************************
-
-int appl_mepa_init(void);
-void appl_spi_init(void);
-void appl_set_trace(void);
-mepa_rc appl_mepa_phy_init(mepa_port_no_t port_no);
-mepa_rc appl_mepa_reset_phy(mepa_port_no_t port_no);
-mepa_rc appl_mepa_poll(mepa_port_no_t port_no);
-
 void appl_mepa_tracer(const mepa_trace_data_t *data, va_list args);
 
-// Functions below were taken from the example pseudocode in mepa-doc.html
+// Functions below were taken from the example pseudocode in mepa/docs/linkup_config.adoc
 void *appl_mem_alloc(struct mepa_callout_ctx *ctx, size_t size);
 void appl_mem_free(struct mepa_callout_ctx *ctx, void *ptr);
-
-// SPI IO Test - ref: vtss_appl_10g_phy_malibu.c
-void appl_malibu_spi_io_test(mepa_callout_t *callout, mepa_callout_ctx_t *callout_ctx);
 
 // *****************************************************************************
 // *****************************************************************************
@@ -92,7 +87,6 @@ mepa_conf_t         appl_malibu_conf;
 mepa_callout_ctx_t  appl_callout_ctx;
 
 mepa_board_conf_t   appl_board_conf;        // Not used in the application since MEBA is not needed here.
-                                            // I also don't know how to use this.
 
 // Define appl_rpi_spi. See rpi_spi.c for implementation details.
 mepa_callout_t appl_rpi_spi =
@@ -106,6 +100,185 @@ mepa_callout_t appl_rpi_spi =
     .mem_alloc = appl_mem_alloc,
     .mem_free = appl_mem_free,
 };
+
+// *****************************************************************************
+// *****************************************************************************
+// Local Functions
+// *****************************************************************************
+// *****************************************************************************
+
+void appl_spi_init(void)
+{
+    spi_initialize();
+}
+
+void appl_set_trace(void)
+{
+    // Register the tracer function
+    MEPA_TRACE_FUNCTION = appl_mepa_tracer;
+}
+
+mepa_rc appl_mepa_reset_phy(mepa_port_no_t port_no)
+{
+    mepa_reset_param_t rst_conf = {};
+
+    // See malibu_10g_reset in vtss.c... only MEPA_RESET_POINT_PRE is used.
+    rst_conf.reset_point = MEPA_RESET_POINT_PRE;
+
+    return mepa_reset(appl_malibu_device[port_no], &rst_conf);
+}
+
+mepa_rc appl_mepa_poll(mepa_port_no_t port_no)
+{
+    mepa_rc rc = MEPA_RC_OK;
+
+    // See microchip/ethernet/common.h > mesa_port_speed_t
+    char *portspeed2txt[] = {
+        "Undefined",
+        "10 Mbps",
+        "100 Mbps",
+        "1000 Mbps",
+        "2500 Mbps",
+        "5 Gbps",
+        "10 Gbps",
+        "12 Gbps",
+        "25 Gbps",
+        "Auto",
+    };
+
+    mepa_status_t appl_status = {};
+    rc = mepa_poll(appl_malibu_device[port_no], &appl_status);
+    printf("Port: %d, rc: %d, Speed: %s, fdx: %s, Cu: %s, Fi: %s, Link: %s\n", port_no, rc, portspeed2txt[appl_status.speed], \
+            appl_status.fdx? "Yes":"No", appl_status.copper? "Yes":"No", appl_status.fiber? "Yes":"No", appl_status.link? "Up" : "Down");
+    
+    return rc;
+}
+
+mepa_rc appl_mepa_phy_init(mepa_port_no_t port_no, int phy_mode)
+{
+    mepa_rc rc = MEPA_RC_OK;
+
+    rc = mepa_conf_get(appl_malibu_device[port_no], &appl_malibu_conf);
+    if (rc != MEPA_RC_OK)
+    {
+        T_E("%s: mepa_conf_get() error %d\n", __func__, rc);
+        return rc;
+    }
+    
+    // Configure the 10G PHY operating mode
+    // from board-configs/src/sparx5/meba.c > malibu_init
+    appl_malibu_conf.speed = MESA_SPEED_10G;
+    
+
+    // h_media/l_media:
+    // --> MEPA_MEDIA_TYPE_SR2_SC (limiting SR/LR/ER/ZR limiting modules)
+    // --> MEPA_MEDIA_TYPE_DAC_SC (Direct Attach Cu Cable)
+    // --> MEPA_MEDIA_TYPE_KR_SC  (10GBASE-KR backplane)
+    // --> MEPA_MEDIA_TYPE_ZR_SC  (linear ZR modules)
+    switch(phy_mode)
+    {
+        case PHY_MODE_10G_LAN:   /* 0=MODE_10GLAN */
+            appl_malibu_conf.conf_10g.oper_mode = MEPA_PHY_LAN_MODE;
+
+            // Assuming SR/LR limiting module on the line side and long traces (> 10 in)
+            // or backplane on the host side
+            // oper_mode.h_media = MEPA_MEDIA_TYPE_KR_SC;
+            // oper_mode.l_media = MEPA_MEDIA_TYPE_SR2_SC;
+            appl_malibu_conf.conf_10g.h_media = MEPA_MEDIA_TYPE_KR_SC;
+            appl_malibu_conf.conf_10g.l_media = MEPA_MEDIA_TYPE_SR2_SC;
+            break;
+
+        case PHY_MODE_1G_LAN: /* 1=MODE_1GLAN */
+            appl_malibu_conf.conf_10g.oper_mode = MEPA_PHY_1G_MODE;
+
+            // Always use these media settings for 1G LAN data rates
+            // oper_mode.h_media = MEPA_MEDIA_TYPE_SR2_SC;
+            // oper_mode.l_media = MEPA_MEDIA_TYPE_SR2_SC;
+            appl_malibu_conf.conf_10g.h_media = MEPA_MEDIA_TYPE_SR2_SC;
+            appl_malibu_conf.conf_10g.l_media = MEPA_MEDIA_TYPE_SR2_SC;
+
+            break;
+
+        case PHY_MODE_10G_WAN: /* 2=MODE_10GWAN */
+            appl_malibu_conf.conf_10g.oper_mode = MEPA_PHY_WAN_MODE;
+
+            // Assuming SR/LR limiting module on the line side and long traces (> 10 in)
+            // or backplane on the host side
+            appl_malibu_conf.conf_10g.h_media = MEPA_MEDIA_TYPE_KR_SC;
+            appl_malibu_conf.conf_10g.l_media = MEPA_MEDIA_TYPE_SR2_SC;
+
+            break;
+
+        case PHY_MODE_10G_RPTR:   /* 0=MODE_10GRPTR */
+            appl_malibu_conf.conf_10g.oper_mode = MEPA_PHY_REPEATER_MODE;
+            // oper_mode.rate = VTSS_RPTR_RATE_10_3125;     // No MEPA type for repeater mode rate as of 2025.12
+
+            appl_malibu_conf.conf_10g.h_media = MEPA_MEDIA_TYPE_DAC;
+            appl_malibu_conf.conf_10g.l_media = MEPA_MEDIA_TYPE_SR2_SC;
+            break;
+
+        case PHY_MODE_1G_RPTR:   /* 0=MODE_1GRPTR */
+            // MJ Addition 2024-08-09. uncomment the two lines below when testing with a 1G Cu SFP
+            appl_malibu_conf.conf_10g.oper_mode = MEPA_PHY_REPEATER_MODE;
+            // oper_mode.rate = VTSS_RPTR_RATE_1_25;       // No MEPA type for repeater mode rate as of 2025.12
+
+            appl_malibu_conf.conf_10g.h_media = MEPA_MEDIA_TYPE_DAC;
+            appl_malibu_conf.conf_10g.l_media = MEPA_MEDIA_TYPE_SR2_SC;
+            break;
+
+        default:
+            // Error
+            T_E("mepa_conf_set config, port %d\n", port_no);
+            printf("mepa_conf_set config failed, port %d -- Improper Mode Selection!\n", port_no);
+    }
+    
+    appl_malibu_conf.conf_10g.interface_mode = MEPA_PHY_SFI_XFI;
+    appl_malibu_conf.conf_10g.channel_id = MEPA_CHANNELID_NONE;
+
+    // Invert polarity of Line/Host Tx/Rx
+    // See VSC8258EV Schematics
+    appl_malibu_conf.conf_10g.polarity.host_rx = false;
+    appl_malibu_conf.conf_10g.polarity.line_rx = false;
+    appl_malibu_conf.conf_10g.polarity.host_tx = false;
+    appl_malibu_conf.conf_10g.polarity.line_tx = (port_no < 2)? false : true;
+
+    // H/LREFCLK is_high_amp :
+    // --> TRUE (1100mV to 2400mV diff swing)
+    // --> FALSE (200mV to 1200mV diff swing)
+    appl_malibu_conf.conf_10g.h_clk_src_is_high_amp = true;
+    appl_malibu_conf.conf_10g.l_clk_src_is_high_amp = true;
+
+    appl_malibu_conf.conf_10g.xfi_pol_invert = 1;
+    appl_malibu_conf.conf_10g.is_host_wan = false;
+    appl_malibu_conf.conf_10g.lref_for_host = false;
+    appl_malibu_conf.conf_10g.channel_high_to_low = false;
+
+    rc = mepa_conf_set(appl_malibu_device[port_no], &appl_malibu_conf);
+    if (rc != MEPA_RC_OK)
+    {
+        T_E("%s: mepa_conf_set() error %d", __func__, rc);
+        return rc;
+    }
+
+    return rc;
+}
+
+bool get_valid_port_no(mepa_port_no_t* port_no, char port_no_str[])
+{
+    scanf("%s", &port_no_str[0]);
+    *port_no = atoi(port_no_str);
+
+    // Validate the Port Number, ensure it is in range
+    if (*port_no >= VTSS_PORT_NO_START && *port_no < VTSS_PORT_NO_END)
+    {
+        return true;
+    }
+
+    printf ("Error - Invalid Port Number: %d  Valid Range: %d - %d \n",
+            *port_no, VTSS_PORT_NO_START, (VTSS_PORT_NO_END-1));
+
+   return false;
+}
 
 // *****************************************************************************
 // *****************************************************************************
@@ -236,148 +409,6 @@ mepa_callout_t appl_rpi_spi =
 // Section: Function Defines
 // *****************************************************************************
 // *****************************************************************************
-
-void appl_set_trace(void)
-{
-    // Register the tracer function
-    MEPA_TRACE_FUNCTION = appl_mepa_tracer;
-}
-
-int appl_mepa_init(void)
-{
-    // Code is taken from the mepa_init() snippet 
-    // in mepa-doc.html#mepa/docs/mepa_instantiation
-    // If board has a GPIO which needs to be toggled to release PHYs from reset,
-    // then this can be done here.
-
-    // 2024-07-18: Another useful reference for this is in
-    // meba/src/meba_generic.c > meba_phy_driver_init()
-
-    unsigned int i = 0;
-
-   // Loop through all ports (PHYs) in the system.
-    for (i = 0; i < APPL_PORT_COUNT; ++i)
-    {
-        // Configure the board configuration (note temporary life time).
-        memset(&appl_board_conf, 0, sizeof(appl_board_conf));
-        appl_board_conf.numeric_handle = i;
-
-        // Fill application specific data in the context area. This is likely to
-        // include bus instance, MDIO address etc.
-        //APPL_fill_port_data(i, &APPL_mepa_callout_cxt[i]);
-        memset(&appl_callout_ctx[i], 0, sizeof(appl_callout_ctx[i]));
-        appl_callout_ctx[i].port_no = i;
-        
-        // Create the MEPA devices (real applications needs to check for error as
-        // well).
-        appl_malibu_device[i] = mepa_create(&appl_rpi_spi,
-                                            &appl_callout_ctx[i],
-                                            &appl_board_conf);
-    }
-
-   // Link to base port since we're dealing with a quad-port PHY.
-   // For VSC8258, we can just link directly to Port 0,
-   // but for multi-PHY systems, it's better to loop through each PHY
-   // port as shown in the KB below.
-   // https://microchip.my.site.com/s/article/Creating-MEPA-API-PHY-Instances-for-VSC-PHY
-    for (i = 0; i < APPL_PORT_COUNT; ++i)
-    {
-        // The application needs to keep track on which PHYs is located in common
-        // packets.
-        if(i != APPL_BASE_PORT)
-        {
-            mepa_link_base_port(appl_malibu_device[i], 
-                                appl_malibu_device[APPL_BASE_PORT],
-                                i);
-        }
-    }
-
-    return MEPA_RC_OK;
-}
-
-void appl_spi_init(void)
-{
-    spi_initialize();
-}
-
-mepa_rc appl_mepa_phy_init(mepa_port_no_t port_no)
-{
-    mepa_rc rc = MEPA_RC_OK;
-
-    rc = mepa_conf_get(appl_malibu_device[port_no], &appl_malibu_conf);
-    if (rc != MEPA_RC_OK)
-    {
-        T_E("%s: mepa_conf_get() error %d\n", __func__, rc);
-        return rc;
-    }
-    
-    
-    // Configure the 10g PHY operating mode
-    // from meba/src/sparx5/meba.c > malibu_init
-    appl_malibu_conf.speed = MESA_SPEED_10G;
-    appl_malibu_conf.conf_10g.oper_mode = MEPA_PHY_LAN_MODE;
-    appl_malibu_conf.conf_10g.interface_mode = MEPA_PHY_SFI_XFI;
-    appl_malibu_conf.conf_10g.channel_id = MEPA_CHANNELID_NONE;
-    appl_malibu_conf.conf_10g.xfi_pol_invert = 1;
-    appl_malibu_conf.conf_10g.polarity.host_rx = false;
-    appl_malibu_conf.conf_10g.polarity.line_rx = false;
-    appl_malibu_conf.conf_10g.polarity.host_tx = false;
-    appl_malibu_conf.conf_10g.polarity.line_tx = (port_no < 2)? false : true;
-    appl_malibu_conf.conf_10g.is_host_wan = false;
-    appl_malibu_conf.conf_10g.lref_for_host = false;
-    appl_malibu_conf.conf_10g.h_clk_src_is_high_amp = true;
-    appl_malibu_conf.conf_10g.l_clk_src_is_high_amp = true;
-    appl_malibu_conf.conf_10g.h_media = MEPA_MEDIA_TYPE_DAC;
-    appl_malibu_conf.conf_10g.l_media = MEPA_MEDIA_TYPE_DAC;
-    appl_malibu_conf.conf_10g.channel_high_to_low = false;
-    // appl_malibu_conf.admin.enable = 1;
-
-    rc = mepa_conf_set(appl_malibu_device[port_no], &appl_malibu_conf);
-    if (rc != MEPA_RC_OK)
-    {
-        T_E("%s: mepa_conf_set() error %d", __func__, rc);
-        return rc;
-    }
-
-    return rc;
-}
-
-mepa_rc appl_mepa_reset_phy(mepa_port_no_t port_no)
-{
-    mepa_reset_param_t rst_conf = {};
-
-    // See malibu_10g_reset in vtss.c
-    rst_conf.reset_point = MEPA_RESET_POINT_PRE;
-
-    return mepa_reset(appl_malibu_device[port_no], &rst_conf);
-}
-
-mepa_rc appl_mepa_poll(mepa_port_no_t port_no)
-{
-    mepa_rc rc = MEPA_RC_OK;
-
-    // See microchip/ethernet/common.h > mesa_port_speed_t
-    char *portspeed2txt[] = {
-        "Undefined",
-        "10 Mbps",
-        "100 Mbps",
-        "1000 Mbps",
-        "2500 Mbps",
-        "5 Gbps",
-        "10 Gbps",
-        "12 Gbps",
-        "25 Gbps",
-        "Auto",
-    };
-
-    mepa_status_t appl_status = {};
-    rc = mepa_poll(appl_malibu_device[port_no], &appl_status);
-    printf("Port: %d, rc: %d, Speed: %s, fdx: %s, Cu: %s, Fi: %s, Link: %s\n", port_no, rc, portspeed2txt[appl_status.speed], \
-            appl_status.fdx? "Yes":"No", appl_status.copper? "Yes":"No", appl_status.fiber? "Yes":"No", appl_status.link? "Up" : "Down");
-    
-    return rc;
-}
-
 void appl_mepa_tracer(const mepa_trace_data_t *data, va_list args)
 {
     // Taken from the example code snippet in mepa-doc.html#mepa/docs/mepa_instantiation
@@ -493,130 +524,6 @@ void *appl_mem_alloc(struct mepa_callout_ctx *ctx, size_t size)
 void appl_mem_free(struct mepa_callout_ctx *ctx, void *ptr)
 {
     free(ptr);
-}
-
-void appl_malibu_spi_io_test(mepa_callout_t *callout, mepa_callout_ctx_t *callout_ctx)
-{
-    uint32_t val32 = 0;
-    uint32_t val32B = 0;
-    uint16_t addr;
-    uint8_t dev;
-    mepa_port_no_t port_no = callout_ctx->port_no;
-
-    printf("Test reading global device ID register...\n");
-    dev = 0x1E; addr = 0x0;
-    callout->spi_read(&callout_ctx[0], 0, dev, addr, &val32);
-    printf("0x%Xx%04X = 0x%X\n", dev, addr, val32); fflush(stdout);
-
-    dev = 0x1E; addr = 0x0;
-    callout->spi_read(&callout_ctx[1], 1, dev, addr, &val32);
-    printf("1x%Xx%04X = 0x%X\n", dev, addr, val32); fflush(stdout);
-
-    dev = 0x1E; addr = 0x0;
-    callout->spi_read(&callout_ctx[2], 2, dev, addr, &val32);
-    printf("2x%Xx%04X = 0x%X\n\n", dev, addr, val32); fflush(stdout);
-
-    // // dev = 0x1E; addr = 0x9002;
-    // // inst->init_conf.spi_32bit_read_write(NULL, 0, SPI_RD, dev, addr, &val32);
-    // // printf("0x%Xx%04X = 0x%X\n\n", dev, addr, val32); fflush(stdout);
-    // // *val32 = 0x4;
-    // // inst->init_conf.spi_32bit_read_write(NULL, 0, SPI_WR, dev, addr, &val32);
-    // // inst->init_conf.spi_32bit_read_write(NULL, 0, SPI_RD, dev, addr, &val32);
-    // // printf("0x%Xx%04X = 0x%X\n\n", dev, addr, val32); fflush(stdout);
-    
-    // // dev = 0x1E; addr = 0x9002;
-    // // inst->init_conf.spi_32bit_read_write(NULL, 2, SPI_RD, dev, addr, &val32);
-    // // printf("2x%Xx%04X = 0x%X\n\n", dev, addr, val32); fflush(stdout);
-    // // *val32 = 0x4;
-    // // inst->init_conf.spi_32bit_read_write(NULL, 2, SPI_WR, dev, addr, &val32);
-    // // inst->init_conf.spi_32bit_read_write(NULL, 2, SPI_RD, dev, addr, &val32);
-    // // printf("2x%Xx%04X = 0x%X\n\n", dev, addr, val32); fflush(stdout);
-    
-    // // dev = 0x1E; addr = 0x9202;
-    // // inst->init_conf.spi_32bit_read_write(NULL, 0, SPI_RD, dev, addr, &val32);
-    // // printf("0x%Xx%04X = 0x%X\n\n", dev, addr, val32); fflush(stdout);
-    // // *val32 = 0x4;
-    // // inst->init_conf.spi_32bit_read_write(NULL, 0, SPI_WR, dev, addr, &val32);
-    // // inst->init_conf.spi_32bit_read_write(NULL, 0, SPI_RD, dev, addr, &val32);
-    // // printf("0x%Xx%04X = 0x%X\n\n", dev, addr, val32); fflush(stdout);
-    
-    // // dev = 0x1E; addr = 0x9202;
-    // // inst->init_conf.spi_32bit_read_write(NULL, 2, SPI_RD, dev, addr, &val32);
-    // // printf("2x%Xx%04X = 0x%X\n\n", dev, addr, val32); fflush(stdout);
-    // // *val32 = 0x4;
-    // // inst->init_conf.spi_32bit_read_write(NULL, 2, SPI_WR, dev, addr, &val32);
-    // // inst->init_conf.spi_32bit_read_write(NULL, 2, SPI_RD, dev, addr, &val32);
-    // // printf("2x%Xx%04X = 0x%X\n\n", dev, addr, val32); fflush(stdout);
-    
-    dev = 0x1; addr = 0xF112;
-    printf("Test writing to 0x%Xx%04X...\n", dev, addr);
-    callout->spi_read(&callout_ctx[0], 0, dev, addr, &val32);
-    printf("0x%Xx%04X = 0x%X\n", dev, addr, val32); fflush(stdout);
-    val32 = 0x003DF828;
-    callout->spi_write(&callout_ctx[0], 0, dev, addr, &val32);
-    callout->spi_read(&callout_ctx[0], 0, dev, addr, &val32);
-    printf("0x%Xx%04X = 0x%X\n\n", dev, addr, val32); fflush(stdout);
-
-    dev = 0x1; addr = 0xF112;
-    printf("Test writing to 1x%Xx%04X...\n", dev, addr);
-    callout->spi_read(&callout_ctx[1], 1, dev, addr, &val32);
-    printf("1x%Xx%04X = 0x%X\n", dev, addr, val32); fflush(stdout);
-    val32 = 0x004DF828;
-    callout->spi_write(&callout_ctx[1], 1, dev, addr, &val32);
-    callout->spi_read(&callout_ctx[1], 1, dev, addr, &val32);
-    printf("1x%Xx%04X = 0x%X\n\n", dev, addr, val32); fflush(stdout);
-
-    dev = 0x1; addr = 0xF112;
-    printf("Test writing to 2x%Xx%04X...\n", dev, addr);
-    callout->spi_read(&callout_ctx[2], 2, dev, addr, &val32);
-    printf("2x%Xx%04X = 0x%X\n", dev, addr, val32); fflush(stdout);
-    val32 = 0x005DF828;
-    callout->spi_write(&callout_ctx[2], 2, dev, addr, &val32);
-    callout->spi_read(&callout_ctx[2], 2, dev, addr, &val32);
-    printf("2x%Xx%04X = 0x%X\n", dev, addr, val32); fflush(stdout);
-    val32 = 0x007DF820;
-    callout->spi_write(&callout_ctx[2], 2, dev, addr, &val32);
-    callout->spi_read(&callout_ctx[2], 2, dev, addr, &val32);
-    printf("2x%Xx%04X = 0x%X\n\n", dev, addr, val32); fflush(stdout);
-
-    dev = 0x1; addr = 0xF112;
-    printf("Test writing to 3x%Xx%04X...\n", dev, addr);
-    callout->spi_read(&callout_ctx[3], 3, dev, addr, &val32);
-    printf("3x%Xx%04X = 0x%X\n", dev, addr, val32); fflush(stdout);
-    val32 = 0x006DF828;
-    callout->spi_write(&callout_ctx[3], 3, dev, addr, &val32);
-    callout->spi_read(&callout_ctx[3], 3, dev, addr, &val32);
-    printf("3x%Xx%04X = 0x%X\n", dev, addr, val32); fflush(stdout);
-    val32 = 0x007DF820;
-    callout->spi_write(&callout_ctx[3], 3, dev, addr, &val32);
-    callout->spi_read(&callout_ctx[3], 3, dev, addr, &val32);
-    printf("3x%Xx%04X = 0x%X\n\n", dev, addr, val32); fflush(stdout);
-
-    dev = 0x1; addr = 0xF120;
-    printf("Test reading from 0x%Xx%04X...\n", dev, addr);
-    callout->spi_read(&callout_ctx[0], 0, dev, addr, &val32);
-    printf("0x%Xx%04X = 0x%X\n", dev, addr, val32); fflush(stdout);
-    callout->spi_read(&callout_ctx[1], 1, dev, addr, &val32);
-    printf("1x%Xx%04X = 0x%X\n", dev, addr, val32); fflush(stdout);
-    callout->spi_read(&callout_ctx[2], 2, dev, addr, &val32);
-    printf("2x%Xx%04X = 0x%X\n", dev, addr, val32); fflush(stdout);
-    callout->spi_read(&callout_ctx[3], 3, dev, addr, &val32);
-    printf("3x%Xx%04X = 0x%X\n\n", dev, addr, val32); fflush(stdout);
-
-    dev = 0x1; addr = 0xF121;
-    printf("Test writing to 0x%Xx%04X...\n", dev, addr);
-    callout->spi_read(&callout_ctx[0], 0, dev, addr, &val32);
-    printf("0x%Xx%04X = 0x%X\n", dev, addr, val32); fflush(stdout);
-    val32B = 0x48888924;
-    callout->spi_write(&callout_ctx[0], 0, dev, addr, &val32B);
-    callout->spi_read(&callout_ctx[0], 0, dev, addr, &val32B);
-    printf("0x%Xx%04X = 0x%X\n", dev, addr, val32B); fflush(stdout);
-    // *val32 = 0x88888924;
-    callout->spi_write(&callout_ctx[0], 0, dev, addr, &val32);
-    callout->spi_read(&callout_ctx[0],0,  dev, addr, &val32);
-    printf("0x%Xx%04X = 0x%X\n\n\n", dev, addr, val32); fflush(stdout);
-
-    return;
 }
 
 // *****************************************************************************
