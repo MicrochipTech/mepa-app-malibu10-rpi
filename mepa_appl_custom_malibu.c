@@ -488,6 +488,63 @@ bool get_valid_port_no(mepa_port_no_t* port_no, char port_no_str[])
         {
             break;
         }
+        else if (strcmp(command, "dump")  == 0)
+        {
+            if (get_valid_port_no(&port_no, port_no_str) == false)
+            {
+                continue;
+            }
+
+            // Get Debug info. See https://microchip.my.site.com/s/article/Dumping-VSC-PHY-Registers
+            mepa_debug_info_t mepa_dbg;
+            memset (&mepa_dbg, 0, sizeof(mesa_debug_info_t));
+            mepa_dbg.full = 1;
+            mepa_dbg.clear = 1;
+            mepa_dbg.vml_format = 0;
+
+            mepa_dbg.layer = MEPA_DEBUG_LAYER_ALL;   // All Layers or CIL or AIL
+                                                     // MEPA_DEBUG_LAYER_CIL or MEPA_DEBUG_LAYER_AIL
+
+            // Ask user what register group to dump.
+            printf ("Enter Register Group: all/phy/ts/macsec \n");
+            memset (&value_str[0], 0, sizeof(value_str));
+            scanf("%s", &value_str[0]);
+
+            if(!strcmp(value_str, "all"))
+            {
+                mepa_dbg.group = MEPA_DEBUG_GROUP_ALL;
+                printf("Debug group set to MEPA_DEBUG_GROUP_ALL!\n");
+            }
+            else if(!strcmp(value_str, "phy"))
+            {
+                mepa_dbg.group = MEPA_DEBUG_GROUP_PHY;
+                printf("Debug group set to MEPA_DEBUG_GROUP_PHY!\n");
+            }
+            else if(!strcmp(value_str, "ts"))
+            {
+                mepa_dbg.group = MEPA_DEBUG_GROUP_PHY_TS;
+                printf("Debug group set to MEPA_DEBUG_GROUP_PHY_TS!\n");
+            }
+            else if(!strcmp(value_str, "macsec"))
+            {
+                mepa_dbg.group = MEPA_DEBUG_GROUP_MACSEC;
+                printf("Debug group set to MEPA_DEBUG_GROUP_MACSEC!\n");
+            }
+            else
+            {
+                printf("Invalid debug group!\n");
+                // Skip printing debug info
+                continue;
+            }
+
+            printf("\n==========================================================\n");
+            printf("Full Reg Dump for Port %d\n", port_no);
+            // Wait for 1s before the reg dump is printed
+            usleep(1000000);
+
+            rc = mepa_debug_info_dump(appl_malibu_device[port_no], (mesa_debug_printf_t) printf, &mepa_dbg);
+            continue;
+        }
     }
 
     // Poll PHY ports.
@@ -502,20 +559,6 @@ bool get_valid_port_no(mepa_port_no_t* port_no, char port_no_str[])
     //     // printf("appl_mepa_poll: rc: %d\r\n\r\n", rc);
     //     usleep(500000); // 500ms
     // }
-    
-    // Get Debug info. See https://microchip.my.site.com/s/article/Dumping-VSC-PHY-Registers
-    // mepa_debug_info_t mepa_dbg;
-    // memset (&mepa_dbg, 0, sizeof(mesa_debug_info_t));
-    // mepa_dbg.full = 1;
-    // mepa_dbg.clear = 1;
-    // mepa_dbg.vml_format = 0;
-
-    // mepa_dbg.layer = MEPA_DEBUG_LAYER_ALL;   // All Layers or CIL or AIL
-    //                                 // MEPA_DEBUG_LAYER_CIL or MEPA_DEBUG_LAYER_AIL
-
-    // mepa_dbg.group = MEPA_DEBUG_GROUP_PHY; // Gen PHY Register Dump
-
-    // rc = mepa_debug_info_dump(appl_malibu_device[2], (mesa_debug_printf_t) printf, &mepa_dbg);
 
     return 0;
 }
