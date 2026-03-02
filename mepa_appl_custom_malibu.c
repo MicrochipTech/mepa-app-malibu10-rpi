@@ -98,6 +98,49 @@ mepa_callout_t appl_rpi_spi =
 
 // *****************************************************************************
 // *****************************************************************************
+// Local Variables/Defines
+// *****************************************************************************
+// *****************************************************************************
+
+// See microchip/ethernet/common.h > mesa_port_speed_t
+char *portspeed2txt[] = {
+    "Undefined",
+    "10 Mbps",
+    "100 Mbps",
+    "1000 Mbps",
+    "2500 Mbps",
+    "5 Gbps",
+    "10 Gbps",
+    "12 Gbps",
+    "25 Gbps",
+    "Auto",
+};
+
+char *mediatype2txt[] = {
+    "MEPA_MEDIA_TYPE_SR",
+    "MEPA_MEDIA_TYPE_SR2",
+    "MEPA_MEDIA_TYPE_DAC",
+    "MEPA_MEDIA_TYPE_ZR",
+    "MEPA_MEDIA_TYPE_KR",
+    "MEPA_MEDIA_TYPE_SR_SC",
+    "MEPA_MEDIA_TYPE_SR2_SC",
+    "MEPA_MEDIA_TYPE_DAC_SC",
+    "MEPA_MEDIA_TYPE_ZR_SC",
+    "MEPA_MEDIA_TYPE_ZR2_SC",
+    "MEPA_MEDIA_TYPE_KR_SC",
+    "MEPA_MEDIA_TYPE_LR",
+    "MEPA_MEDIA_TYPE_ER",
+    "MEPA_MEDIA_TYPE_SFP28_25G_SR",
+    "MEPA_MEDIA_TYPE_SFP28_25G_LR",
+    "MEPA_MEDIA_TYPE_SFP28_25G_ER",
+    "MEPA_MEDIA_TYPE_SFP28_25G_DAC1M",
+    "MEPA_MEDIA_TYPE_SFP28_25G_DAC2M",
+    "MEPA_MEDIA_TYPE_1000BASE_T",
+    "MEPA_MEDIA_TYPE_NONE",
+};
+
+// *****************************************************************************
+// *****************************************************************************
 // Local Functions
 // *****************************************************************************
 // *****************************************************************************
@@ -146,20 +189,6 @@ mepa_rc appl_mepa_reset_phy(mepa_port_no_t port_no)
 mepa_rc appl_mepa_poll(mepa_port_no_t port_no)
 {
     mepa_rc rc = MEPA_RC_OK;
-
-    // See microchip/ethernet/common.h > mesa_port_speed_t
-    char *portspeed2txt[] = {
-        "Undefined",
-        "10 Mbps",
-        "100 Mbps",
-        "1000 Mbps",
-        "2500 Mbps",
-        "5 Gbps",
-        "10 Gbps",
-        "12 Gbps",
-        "25 Gbps",
-        "Auto",
-    };
 
     mepa_status_t appl_status = {};
     rc = mepa_poll(appl_malibu_device[port_no], &appl_status);
