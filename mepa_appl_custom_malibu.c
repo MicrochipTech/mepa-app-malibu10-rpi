@@ -267,13 +267,13 @@ bool get_valid_port_no(mepa_port_no_t* port_no, char port_no_str[])
     *port_no = atoi(port_no_str);
 
     // Validate the Port Number, ensure it is in range
-    if (*port_no >= VTSS_PORT_NO_START && *port_no < VTSS_PORT_NO_END)
+    if (*port_no >= APPL_BASE_PORT && *port_no < APPL_PORT_COUNT)
     {
         return true;
     }
 
     printf ("Error - Invalid Port Number: %d  Valid Range: %d - %d \n",
-            *port_no, VTSS_PORT_NO_START, (VTSS_PORT_NO_END-1));
+            *port_no, APPL_BASE_PORT, (APPL_PORT_COUNT-1));
 
    return false;
 }
@@ -441,6 +441,9 @@ bool get_valid_port_no(mepa_port_no_t* port_no, char port_no_str[])
 
     fflush(stdout);
 
+    /* ****************************************************** */
+    /*                       Main Demo                        */
+    /* ****************************************************** */ 
     // Reference: vtss_appl_10g_phy_malibu.c
     while(1)
     {
