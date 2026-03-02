@@ -653,6 +653,40 @@ bool get_valid_port_no(mepa_port_no_t* port_no, char port_no_str[])
 
             continue;
         }
+        else if (strcmp(command, "get_lmedia")  == 0)
+        {
+            if (get_valid_port_no(&port_no, port_no_str) == false)
+            {
+                continue;
+            }
+
+            rc = mepa_conf_get(appl_malibu_device[port_no], &appl_malibu_conf);
+            if (rc != MEPA_RC_OK)
+            {
+                T_E("%s: mepa_conf_get() error %d\n", __func__, rc);
+                return rc;
+            }
+
+            printf("Port %d Line Media type: %s\n", port_no, mediatype2txt[appl_malibu_conf.conf_10g.l_media]);
+            continue;
+        }
+        else if (strcmp(command, "get_hmedia")  == 0)
+        {
+            if (get_valid_port_no(&port_no, port_no_str) == false)
+            {
+                continue;
+            }
+
+            rc = mepa_conf_get(appl_malibu_device[port_no], &appl_malibu_conf);
+            if (rc != MEPA_RC_OK)
+            {
+                T_E("%s: mepa_conf_get() error %d\n", __func__, rc);
+                return rc;
+            }
+
+            printf("Port %d Host Media type: %s\n", port_no, mediatype2txt[appl_malibu_conf.conf_10g.h_media]);
+            continue;;
+        }
             continue;
         }
     }
