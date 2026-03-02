@@ -68,12 +68,6 @@ WARNINGCHECK="-Wno-error=implicit-function-declaration -Wno-error=int-conversion
 STATICLIBS="mepa/libmepa.a mepa/libmepa_common.a mepa/vtss/libmepa_drv_vtss_custom.a"
 MACROS="-DAPPL_TRACE_LVL_ERROR"
 
-# gcc -I include_common/ -g \
-#     rpi_spi.c \
-#     mepa_appl_custom_malibu.c \
-#     mepa/libmepa.a mepa/libmepa_common.a mepa/vtss/libmepa_drv_vtss_custom.a \
-#     -DAPPL_TRACE_LVL_DEBUG \
-#     -o malibu_custom
 
 COMPILECOMMAND="gcc $INCLUDES $SOURCES $DEBUGBUILD $WARNINGCHECK $STATICLIBS $MACROS -o malibu_custom"
 echo $COMPILECOMMAND

@@ -23,7 +23,7 @@ Hardware connections are shown below (applies to both Raspberry Pi 4B and Raspbe
 <img src="images/setup.jpg"/>
 
 ## Software Used:
-The project has been tested with <span style="color: red;">**SW-MEPA v2025.06**.</span>
+The project has been tested with <span style="color: red;">**SW-MEPA v2025.12**.</span>
 
 SW-MEPA can be downloaded from GitHub in the link below:<br>
 https://github.com/microchip-ung/sw-mepa
@@ -40,34 +40,35 @@ To double-check, use `ls /dev | grep spi`
 ```
 $ sudo apt-get install cmake cmake-curses-gui build-essential ruby ruby-parslet libjson-c-dev -y
 ```
-3. Clone v2025.06 of SW-MEPA and v2024.12 of MESA (which this version of SW-MEPA was tested on...)
+3. Clone v2025.12 of SW-MEPA and v2025.09 of MESA (which this version of SW-MEPA was tested on...)
 ```
-$ git clone https://github.com/microchip-ung/sw-mepa --branch=v2025.06 --depth=1 mepa_v2025.06
-$ cd mepa_v2025.06
+$ git clone https://github.com/microchip-ung/sw-mepa --branch=v2025.12 --depth=1 mepa_v2025.12
+$ cd mepa_v2025.12
 
 // Check MESA version dependency using:
 $ cat .cmake/deps-mesa.json
 
-// Clone MESA 2024.12
-$ git clone https://github.com/microchip-ung/mesa --branch=v2024.12 --depth=1 sw-mesa
+// Clone MESA 2025.09
+$ git clone https://github.com/microchip-ung/mesa --branch=v2025.09 --depth=1 sw-mesa
 $ cd ../
 ```
 
 4. Create a folder where this project will reside, and copy the source code into it. <br>(**NOTE**: you might need to download/clone this repo into your PC first, before copying it manually to your RPi (if your RPi is not connected to the Internet). Otherwise, just 'git clone' the repo directly.)
 ```
-$ mkdir mepa-malibu10-rpi
-// Copy source code into mepa-malibu10-rpi/
+$ mkdir mepa-app-malibu10-rpi
+// Copy source code into mepa-app-malibu10-rpi/
 
 $ ls
-mepa-malibu10-rpi  mepa_v2025.06
+mepa-app-malibu10-rpi  mepa_v2025.12
 ```
 
-5. `cd` into the `mepa-malibu10-rpi` folder and run the following `CMake` command. Then, run make to build the libraries.
+5. `cd` into the `mepa-app-malibu10-rpi` folder and run the following `CMake` command. Then, run make to build the libraries.
 ```
-$ cd mepa-malibu10-rpi
-$ cmake ../mepa_v2025.06 -DMEPA_vtss=ON -DMEPA_vtss_opt_10g=ON -DBUILD_MEPA_DEMO=OFF -DMEPA_vtss_opt_1g=ON
+$ cd mepa-app-malibu10-rpi
+$ cmake --fresh ../mepa_v2025.12 -DMEPA_vtss=ON -DMEPA_vtss_opt_10g=ON -DBUILD_MEPA_DEMO=OFF -DMEPA_vtss_opt_1g=ON -DMEPA_vtss_opt_ts=ON -DCMAKE_C_FLAGS="${CMAKE_C_FLAGS} -DLMU_PP_USE___VA_OPT__=1"
 $ make -j${nproc}
 ```
+Note: There were changes in MESA v2025.06 onwards that could result in some build errors related to the GCC version used. Adding the last C Flag above helps get around these errors.
 
 6. Double-check to ensure the libraries have been built:
 ```
@@ -100,4 +101,5 @@ https://microchipsupport.force.com/s/article/First-Steps-in-Creating-a-MEPA-Appl
 | ----------- | --------------- | ----------------------- |
 | 02-Oct-2024 | Initial release | mjneri |
 | 13-Jan-2026 | Update code after <br> testing with SW-MEPA 2025.06 |mjneri|
+| 02-Mar-2026 | Update code/README to build with <br> SW-MEPA 2025.12 |mjneri|
 
