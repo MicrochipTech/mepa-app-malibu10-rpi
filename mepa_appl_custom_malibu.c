@@ -389,7 +389,7 @@ bool get_valid_port_no(mepa_port_no_t* port_no, char port_no_str[])
     /* ****************************************************** */
     // Run SPI IO Test after mepa_create()
     printf("appl_malibu_spi_io_test()\r\n");
-    appl_malibu_spi_io_test(&appl_rpi_spi, &appl_callout_ctx, APPL_PORT_COUNT);
+    appl_malibu_spi_io_test(&appl_rpi_spi, appl_callout_ctx, APPL_PORT_COUNT);
     printf("\n");
     
     /* ****************************************************** */
@@ -515,7 +515,7 @@ bool get_valid_port_no(mepa_port_no_t* port_no, char port_no_str[])
 
             // Get Debug info. See https://microchip.my.site.com/s/article/Dumping-VSC-PHY-Registers
             mepa_debug_info_t mepa_dbg;
-            memset (&mepa_dbg, 0, sizeof(mesa_debug_info_t));
+            memset (&mepa_dbg, 0, sizeof(mepa_debug_info_t));
             mepa_dbg.full = 1;
             mepa_dbg.clear = 1;
             mepa_dbg.vml_format = 0;

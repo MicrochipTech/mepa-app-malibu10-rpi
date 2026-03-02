@@ -92,7 +92,7 @@ void spi_write(uint8_t *data, unsigned int len)
 	struct spi_ioc_transfer xfer[SPI_MSG_SIZE] = {0};
 
 	/* Fill buffer */
-	xfer[0].tx_buf = data;
+	xfer[0].tx_buf = (uintptr_t) data;
 	xfer[0].len = len;
 	xfer[0].speed_hz = speed;
 	xfer[0].bits_per_word = bits;
@@ -111,7 +111,7 @@ void spi_read(uint8_t *data, unsigned int len)
 	struct spi_ioc_transfer xfer[SPI_MSG_SIZE] = {0};
 
 	/* Fill buffer */
-	xfer[0].rx_buf = data;
+	xfer[0].rx_buf = (uintptr_t) data;
 	xfer[0].len = len;
 	xfer[0].speed_hz = speed;
 	xfer[0].bits_per_word = bits;

@@ -75,17 +75,11 @@ void appl_mem_free(struct mepa_callout_ctx *ctx, void *ptr);
 // *****************************************************************************
 // *****************************************************************************
 
-typedef struct mepa_callout_ctx mepa_callout_ctx_t;
-
 mepa_device_t       *appl_malibu_device[APPL_PORT_COUNT];
+mepa_callout_ctx_t  appl_callout_ctx[APPL_PORT_COUNT];
 mepa_conf_t         appl_malibu_conf;
 
-// Declare this as an array of structs, not an array of pointers to structs.
-// See how "APPL_mepa_callout_cxt" was declared in the code snippet in mepa-doc.html
-mepa_callout_ctx_t  appl_callout_ctx;
-
-mepa_board_conf_t   appl_board_conf;        // Not used in the application since MEBA is not needed here.
-                                            // I also don't know how to use this.
+mepa_board_conf_t   appl_board_conf;        // Only used to specify port_no through numeric_handle
 
 // Define appl_rpi_spi. See rpi_spi.c for implementation details.
 mepa_callout_t appl_rpi_spi =
@@ -135,7 +129,7 @@ mepa_callout_t appl_rpi_spi =
 
     // Run SPI IO Test after board initialization by appl_mepa_init()
     printf("appl_malibu_spi_io_test\r\n\r\n");
-    appl_malibu_spi_io_test(&appl_rpi_spi, &appl_callout_ctx, APPL_PORT_COUNT);
+    appl_malibu_spi_io_test(&appl_rpi_spi, appl_callout_ctx, APPL_PORT_COUNT);
 
     return 0;
 }
@@ -156,11 +150,11 @@ int appl_mepa_init(void)
         memset(&appl_board_conf, 0, sizeof(appl_board_conf));
         appl_board_conf.numeric_handle = i;
 
-        memset(&appl_callout_ctx, 0, sizeof(appl_callout_ctx));
-        appl_callout_ctx.port_no = i;
+        memset(&appl_callout_ctx[i], 0, sizeof(appl_callout_ctx[i]));
+        appl_callout_ctx[i].port_no = i;
         
         appl_malibu_device[i] = mepa_create(&appl_rpi_spi,
-                                            &appl_callout_ctx,
+                                            &appl_callout_ctx[i],
                                             &appl_board_conf);
     }
 
