@@ -61,7 +61,7 @@
 # echo $TESTMAC
 
 INCLUDES="-I include_common/ -I ."
-SOURCES="mepa_appl_custom_malibu.c rpi_spi.c"
+SOURCES="mepa_appl_custom_malibu.c rpi_spi.c io_test.c "
 DEBUGBUILD="-g"
 ERRORCHECK="-W -Werror -Wall"
 WARNINGCHECK="-Wno-error=implicit-function-declaration -Wno-error=int-conversion -Wno-error=incompatible-pointer-types"
