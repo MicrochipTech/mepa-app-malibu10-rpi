@@ -167,18 +167,11 @@ mepa_rc appl_mepa_phy_init(mepa_port_no_t port_no, int phy_mode)
     
     // Configure the 10G PHY operating mode
     // from board-configs/src/sparx5/meba.c > malibu_init
-    appl_malibu_conf.speed = MESA_SPEED_10G;
-    
-
-    // h_media/l_media:
-    // --> MEPA_MEDIA_TYPE_SR2_SC (limiting SR/LR/ER/ZR limiting modules)
-    // --> MEPA_MEDIA_TYPE_DAC_SC (Direct Attach Cu Cable)
-    // --> MEPA_MEDIA_TYPE_KR_SC  (10GBASE-KR backplane)
-    // --> MEPA_MEDIA_TYPE_ZR_SC  (linear ZR modules)
     switch(phy_mode)
     {
         case PHY_MODE_10G_LAN:   /* 0=MODE_10GLAN */
             appl_malibu_conf.conf_10g.oper_mode = MEPA_PHY_LAN_MODE;
+            appl_malibu_conf.speed = MESA_SPEED_10G;
 
             // Assuming SR/LR limiting module on the line side and long traces (> 10 in)
             // or backplane on the host side
@@ -190,6 +183,7 @@ mepa_rc appl_mepa_phy_init(mepa_port_no_t port_no, int phy_mode)
 
         case PHY_MODE_1G_LAN: /* 1=MODE_1GLAN */
             appl_malibu_conf.conf_10g.oper_mode = MEPA_PHY_1G_MODE;
+            appl_malibu_conf.speed = MESA_SPEED_1G;
 
             // Always use these media settings for 1G LAN data rates
             // oper_mode.h_media = MEPA_MEDIA_TYPE_SR2_SC;
@@ -201,6 +195,7 @@ mepa_rc appl_mepa_phy_init(mepa_port_no_t port_no, int phy_mode)
 
         case PHY_MODE_10G_WAN: /* 2=MODE_10GWAN */
             appl_malibu_conf.conf_10g.oper_mode = MEPA_PHY_WAN_MODE;
+            appl_malibu_conf.speed = MESA_SPEED_10G;
 
             // Assuming SR/LR limiting module on the line side and long traces (> 10 in)
             // or backplane on the host side
@@ -212,6 +207,7 @@ mepa_rc appl_mepa_phy_init(mepa_port_no_t port_no, int phy_mode)
         case PHY_MODE_10G_RPTR:   /* 0=MODE_10GRPTR */
             appl_malibu_conf.conf_10g.oper_mode = MEPA_PHY_REPEATER_MODE;
             // oper_mode.rate = VTSS_RPTR_RATE_10_3125;     // No MEPA type for repeater mode rate as of 2025.12
+            appl_malibu_conf.speed = MESA_SPEED_10G;
 
             appl_malibu_conf.conf_10g.h_media = MEPA_MEDIA_TYPE_DAC;
             appl_malibu_conf.conf_10g.l_media = MEPA_MEDIA_TYPE_SR2_SC;
@@ -221,6 +217,7 @@ mepa_rc appl_mepa_phy_init(mepa_port_no_t port_no, int phy_mode)
             // MJ Addition 2024-08-09. uncomment the two lines below when testing with a 1G Cu SFP
             appl_malibu_conf.conf_10g.oper_mode = MEPA_PHY_REPEATER_MODE;
             // oper_mode.rate = VTSS_RPTR_RATE_1_25;       // No MEPA type for repeater mode rate as of 2025.12
+            appl_malibu_conf.speed = MESA_SPEED_1G;
 
             appl_malibu_conf.conf_10g.h_media = MEPA_MEDIA_TYPE_DAC;
             appl_malibu_conf.conf_10g.l_media = MEPA_MEDIA_TYPE_SR2_SC;
@@ -236,7 +233,8 @@ mepa_rc appl_mepa_phy_init(mepa_port_no_t port_no, int phy_mode)
     appl_malibu_conf.conf_10g.channel_id = MEPA_CHANNELID_NONE;
 
     // Invert polarity of Line/Host Tx/Rx
-    // See VSC8258EV Schematics
+    // See VSC8258EV Schematics in the product page.
+    // https://www.microchip.com/en-us/product/vsc8258 > Design Resources
     appl_malibu_conf.conf_10g.polarity.host_rx = false;
     appl_malibu_conf.conf_10g.polarity.line_rx = false;
     appl_malibu_conf.conf_10g.polarity.host_tx = false;
