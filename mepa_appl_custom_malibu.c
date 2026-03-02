@@ -35,6 +35,7 @@
 
 // MEPA includes
 #include "microchip/ethernet/phy/api.h"
+#include "microchip/ethernet/board/api.h"
 #include "vtss_phy_10g_api.h"       // For vtss_phy_10g_mode_t
 
 // Other includes
@@ -107,6 +108,26 @@ mepa_callout_t appl_rpi_spi =
 void appl_spi_init(void)
 {
     spi_initialize();
+}
+
+void appl_spi_read_write(mepa_callout_t *callout, 
+                         mepa_callout_ctx_t *callout_ctx, 
+                         uint8_t mmd,
+                         uint16_t addr,
+                         uint32_t *value,
+                         bool iswrite)
+{
+    mepa_port_no_t port_no = callout_ctx->port_no;
+    T_D("\nPort no is %d\n", port_no);
+
+    if(iswrite)
+    {
+        callout->spi_write(callout_ctx, port_no, mmd, addr, value);
+    }
+    else
+    {
+        callout->spi_read(callout_ctx, port_no, mmd, addr, value);
+    }
 }
 
 void appl_set_trace(void)
@@ -540,6 +561,33 @@ bool get_valid_port_no(mepa_port_no_t* port_no, char port_no_str[])
             usleep(1000000);
 
             rc = mepa_debug_info_dump(appl_malibu_device[port_no], (mesa_debug_printf_t) printf, &mepa_dbg);
+            continue;
+        }
+        else if (strcmp(command, "spird")  == 0)
+        {
+            uint32_t val32 = 0;
+            uint16_t dev = 0;
+            uint16_t addr = 0;
+
+            if (get_valid_port_no(&port_no, port_no_str) == false)
+            {
+                continue;
+            }
+
+            printf ("Enter Dev/MMD (in HEX, ie. 0x ): ");
+            memset (&value_str[0], 0, sizeof(value_str));
+            scanf("%s", &value_str[0]);
+            dev = strtol(value_str, NULL, 16);
+
+            printf ("Enter Addr (in HEX, ie. 0x ): ");
+            memset (&value_str[0], 0, sizeof(value_str));
+            scanf("%s", &value_str[0]);
+            addr = strtol(value_str, NULL, 16);
+
+            // Note: Since there are no MEPA functions that will allow PHY register access specifically through
+            // SPI, we call the SPI callout directly through the wrapper function below.
+            appl_spi_read_write(&appl_rpi_spi, &appl_callout_ctx[port_no], dev, addr, &val32, false);
+            printf("\nRegister 0x%X:0x%04X: 0x%X\n\n", dev, addr, val32);
             continue;
         }
     }
