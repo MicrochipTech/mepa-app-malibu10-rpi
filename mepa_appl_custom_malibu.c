@@ -290,7 +290,14 @@ bool get_valid_port_no(mepa_port_no_t* port_no, char port_no_str[])
  {
     // Defining local variables
     mepa_rc rc = 0;
-    unsigned int i = 0;
+    unsigned int i = 0, j = 0;
+    int phy_mode = 0;
+    char value_str[255] = {0};
+    char command[255] = {0};
+    char port_no_str[255] = {0};
+    uint32_t val32 = 0;
+    uint16_t value = 0;
+    mepa_port_no_t port_no=0;
 
     printf("Raspberry Pi 5 Malibu Code.\r\n");
 
@@ -321,71 +328,182 @@ bool get_valid_port_no(mepa_port_no_t* port_no, char port_no_str[])
     printf("In Line %d: Dev ID = 0x%x\r\n\r\n", __LINE__, val);
 
     /* ****************************************************** */
+    /*                       MEPA INIT                        */
+    /* ****************************************************** */
+    // Code below is based on sw-mepa/board-configs/src/meba_generic.c > meba_phy_driver_init()
+
+    // Another reference is the KB Article below.
+    // https://support.microchip.com/s/article/Creating-MEPA-API-PHY-Instances-for-VSC-PHY
+
+    // Loop through all ports (PHYs) in the system.
+    for (i = 0; i < APPL_PORT_COUNT; ++i)
+    {
+        // Configure the board configuration (note temporary life time).
+        memset(&appl_board_conf, 0, sizeof(appl_board_conf));
+        appl_board_conf.numeric_handle = i;
+
+        // Fill application specific data in the context area. This is likely to
+        // include bus instance, MDIO address etc.
+        memset(&appl_callout_ctx, 0, sizeof(appl_callout_ctx));
+        appl_callout_ctx.port_no = i;
+        
+        // Create the MEPA devices
+        // Real applications needs to check for error as well.
+        appl_malibu_device[i] = mepa_create(&appl_rpi_spi,
+                                            &appl_callout_ctx,
+                                            &appl_board_conf);
+    }
+
+    // Link to base port since we're dealing with a quad-port PHY.
+    // For VSC8258, we can just link directly to Port 0.
+    for (i = 0; i < APPL_PORT_COUNT; ++i)
+    {
+        // The application needs to keep track on which PHYs is located in common
+        // packets.
+        if(i != APPL_BASE_PORT)
+        {
+            mepa_link_base_port(appl_malibu_device[i], 
+                                appl_malibu_device[APPL_BASE_PORT],
+                                i);
+        }
+    }
+
+    /* ****************************************************** */
     /*                       SPI IO Test                      */
     /* ****************************************************** */
     // Run SPI IO Test after mepa_create()
     printf("appl_malibu_spi_io_test()\r\n");
     appl_malibu_spi_io_test(&appl_rpi_spi, &appl_callout_ctx, APPL_PORT_COUNT);
     printf("\n");
-
+    
     /* ****************************************************** */
     /*                       PHY Bring-up                     */
     /* ****************************************************** */    
-    // Reset PHY ports
-    // See MEPA.Doc.html from 2025.06 > mepa_reset() is called before mepa_conf_set()
+    printf("Configuring Operating MODE for ALL Ports; 0=MODE_10GLAN; 1=MODE_1GLAN; 2=MODE_10GWAN; 3=MODE_10GRPTR; 4=MODE_1GRPTR\n");
+    printf("Enter Oper_MODE (0/1/2/3/4): ");
+    memset(&value_str[0], 0, sizeof(value_str));
+    scanf("%s", &value_str[0]);
+    phy_mode = atoi(value_str);
+    printf("\n");
+
+    switch (phy_mode)
+    {
+        case PHY_MODE_10G_LAN:
+            printf ("Operating MODE for ALL Ports: 0=MODE_10GLAN\n");
+            break;
+        case PHY_MODE_1G_LAN:
+            printf ("Operating MODE for ALL Ports: 1=MODE_1GLAN\n");
+            break;
+        case PHY_MODE_10G_WAN:
+            printf ("Operating MODE for ALL Ports: 2=MODE_10GWAN\n");
+            break;
+        case PHY_MODE_10G_RPTR:
+            printf ("Operating MODE for ALL Ports: 3=MODE_10G_RPTR\n");
+            break;
+        case PHY_MODE_1G_RPTR:
+            printf ("Operating MODE for ALL Ports: 4=MODE_1G_RPTR\n");
+            break;
+        default:
+            printf ("Operating MODE ALL Ports INVALID, Setting 10G_LAN Mode \n");
+            phy_mode = 0;
+    }
+
+    // Reset and configure PHY ports
+    // See sw-mepa/mepa/docs/linkup_config.adoc#reset-configuration
+    // mepa_reset() is called before mepa_conf_set()
     for(i = 0; i < APPL_PORT_COUNT; i++)
     {
         printf("Resetting port %d\n", i);
         rc = appl_mepa_reset_phy(i);
-        printf("appl_mepa_reset_phy: rc: %d\r\n\r\n\r\n\r\n", rc);
+        printf("appl_mepa_reset_phy: rc: %d\n\n", rc);
     }
 
     // Set the PHY Configuration for each port.
     // Reference: vtss_appl_10g_phy_malibu.c > 1st for loop of main()
-    // Also, refer to meba/src/sparx5/meba.c > malibu_init()
+    // Also, refer to board-configs/src/sparx5/meba.c > malibu_init()
     for(i = 0; i < APPL_PORT_COUNT; i++)
     {
         printf("Configuring port %d\n", i);
-        rc = appl_mepa_phy_init(i);
-        printf("appl_mepa_phy_init: rc: %d\r\n\r\n\r\n\r\n", rc);
+        rc = appl_mepa_phy_init(i, phy_mode);
+        printf("appl_mepa_phy_init: rc: %d\n\n", rc);
     }
 
     // Wait for PHY to stabilize - around 1s
     usleep(1000000);
+
+    /* ****************************************************** */
+    /*                 Additional Features                    */
+    /* ****************************************************** */ 
     
-    // Check PHY capability of Port 2
+    // Check PHY capability of Port 0
     mepa_phy_info_t appl_phy_info;
     memset(&appl_phy_info, 0, sizeof(appl_phy_info));
-    rc = mepa_phy_info_get(appl_malibu_device[2], &appl_phy_info);
+    rc = mepa_phy_info_get(appl_malibu_device[0], &appl_phy_info);
     printf("mepa_phy_info_get: rc: %d, PHY Cap: 0x%X, Part: 0x%X\r\n", rc, appl_phy_info.cap, appl_phy_info.part_number);
 
-    // mepa_media_get not implemented.
-    // // Get Media of port 2 (with Cu SFP plugged in)
-    // mepa_media_interface_t appl_phy_media;
-    // rc = mepa_media_get(appl_malibu_device[2], &appl_phy_media);h
-    // T_I("mepa_media_get: rc %d, port 2 %d", rc, appl_phy_media);
+    fflush(stdout);
 
-    // // Get Media of port 3 (with 10G SFP+ plugged in)
-    // rc = mepa_media_get(appl_malibu_device[3], &appl_phy_media);
-    // T_I("mepa_media_get: rc %d, port 3 %d", rc, appl_phy_media);
+    // Reference: vtss_appl_10g_phy_malibu.c
+    while(1)
+    {
+        {
+            printf (" *************************************\n");
+            printf (" The following commands are supported:\n");
+            // printf (" debug  <port_no>  - Sets PHY API to output Debug \n");
+            // printf (" dump <port_no> - Dump Reg 0-31 Pages:std/ext1/ext2/ext3/gpio/1588/macsec/1588_reg/macsec_rng/ext_rng for Port \n");
+            // printf (" rdext <port_no> <page> <addr> - Read Extended Page - where page=1,2,3,4,0x10,0x1588,0x2A30,0x52B5 - <addr> 0-31 \n");
+            // printf (" wrext <port_no> <page> <addr> <value> - Write Ext Page - page=1,2,3,4,0x10,0x1588,0x2A30,0x52B5 - <addr> 0-31 - Value MUST be in hex \n");
+            // printf (" ----------------------------------------  |  ------------------------------------------------------- \n");
+            // printf (" spird    <port_no> <dev> <addr>           |  spiwr       <port_no> <dev> <addr> <value> - Value MUST be in hex\n");
+            // printf (" getmedia <port_no> - Get Media i/f        |  setmedia    <port_no> - Set Media I/F for port \n");
+            // printf (" getmac   <port_no> - Get MAC i/f          |  setmac      <port_no> - Set MAC I/F for port \n");
+            // printf (" ----------------------------------------  |  ------------------------------------------------------- \n");
+            // printf (" 10g_kr   <port_no> - 10G Base KR          |  synce       <port_no> - Sync-E Config   \n");
+            // printf (" prbs     <port_no> - PRBS                 |  obuf        <port_no> - Output Buf Control  \n");
+            printf (" status   <port_no> - Rtn PHY Link status  |  vscope      <port_no> - Config for VSCOPE FAST/FULL SCAN \n");
+            // printf (" lpback   <port_no> - Set PHY Loopback     |  sfpdump     <port_no> <i2c_addr> - Dump SFP register connected to port_no\n");
+            // printf (" int10g   <port_no> - Set 10g Interuppts   |  poll10g     <port_no>                                    \n");
+            // printf (" ex_int   <port_no> - Set Ext Interuppts   |  ex_poll     <port_no>                                    \n");
+            // printf (" ts_int   <port_no> - Set TS Interuppts    |  ts_poll     <port_no>                                    \n");
+            // printf (" macsec   <port_no> - MACSEC Block config  |  1588        <port_no> - 1588 Block Config   \n");
+            // printf (" dbgdump  <port_no> - Reg Dump             |                                                \n");
 
-    // Set media
-    // mepa_media_interface_t phy_media_if = MESA_PHY_MEDIA_IF_SFP_PASSTHRU;
-    // rc = mepa_media_set(appl_malibu_device[2], phy_media_if);
-    // printf("mepa_media_set: rc %d, port 2", rc);
+            printf ("\n exit - Exit Program \n");
+            printf (" \n");
+            printf ("> ");
+        }
 
+        rc = scanf("%s", &command[0]);
+
+        if (strcmp(command, "status")  == 0)
+        {
+            if (get_valid_port_no(&port_no, port_no_str) == false)
+            {
+                continue;
+            }
+
+            appl_mepa_poll(port_no);
+
+            continue;
+        }
+        else if (strcmp(command, "exit")  == 0)
+        {
+            break;
+        }
+    }
 
     // Poll PHY ports.
-    for(i = 0; i < 10; i++)
-    {
-        rc = appl_mepa_poll(0);
-        rc = appl_mepa_poll(1);
-        rc = appl_mepa_poll(2);
-        rc = appl_mepa_poll(3);
-        printf("\n");
-        // printf("appl_mepa_poll: rc: %d\r\n\r\n", rc);
-        usleep(500000); // 500ms
-    }
+    // for(i = 0; i < 10; i++)
+    // {
+    //     for(j = 0; j < APPL_PORT_COUNT; j++)
+    //     {
+    //         rc = appl_mepa_poll(j);
+    //     }
+
+    //     printf("\n");
+    //     // printf("appl_mepa_poll: rc: %d\r\n\r\n", rc);
+    //     usleep(500000); // 500ms
+    // }
     
     // Get Debug info. See https://microchip.my.site.com/s/article/Dumping-VSC-PHY-Registers
     // mepa_debug_info_t mepa_dbg;
