@@ -39,6 +39,7 @@
 
 // Other includes
 #include "rpi_spi.h"        // For the SPI accessor functions
+#include "io_test.h"        // For the IO Test
 
 // *****************************************************************************
 // *****************************************************************************
@@ -88,9 +89,7 @@ typedef struct mepa_callout_ctx mepa_callout_ctx_t;
 mepa_device_t       *appl_malibu_device[APPL_PORT_COUNT];
 mepa_conf_t         appl_malibu_conf;
 
-// Declare this as an array of structs, not an array of pointers to structs.
-// See how "APPL_mepa_callout_cxt" was declared in the code snippet in mepa-doc.html
-mepa_callout_ctx_t  appl_callout_ctx[APPL_PORT_COUNT];
+mepa_callout_ctx_t  appl_callout_ctx;
 
 mepa_board_conf_t   appl_board_conf;        // Not used in the application since MEBA is not needed here.
                                             // I also don't know how to use this.
@@ -148,16 +147,13 @@ mepa_callout_t appl_rpi_spi =
     rpi_spi_32bit_read_rbt_test(0x0, 0x1e, 0x0, &val);
     printf("In Line %d: Dev ID = 0x%x\r\n\r\n", __LINE__, val);
 
-    // Real applications MUST check the return value
-    rc = appl_mepa_init();
-    printf("mepa_create: rc: %d\r\n\r\n", rc);
-
-    // Run SPI IO Test after board initialization by appl_mepa_init()
-    printf("appl_malibu_spi_io_test\r\n\r\n");
-    appl_malibu_spi_io_test(&appl_rpi_spi, &appl_callout_ctx);
-
-    // Give time to confirm the SPI IO test worked... - around 2s
-    usleep(2000000);
+    /* ****************************************************** */
+    /*                       SPI IO Test                      */
+    /* ****************************************************** */
+    // Run SPI IO Test after mepa_create()
+    printf("appl_malibu_spi_io_test()\r\n");
+    appl_malibu_spi_io_test(&appl_rpi_spi, &appl_callout_ctx, APPL_PORT_COUNT);
+    printf("\n");
 
     /* ****************************************************** */
     /*                       PHY Bring-up                     */
