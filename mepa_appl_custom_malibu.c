@@ -79,14 +79,11 @@ void appl_mem_free(struct mepa_callout_ctx *ctx, void *ptr);
 // *****************************************************************************
 // *****************************************************************************
 
-typedef struct mepa_callout_ctx mepa_callout_ctx_t;
-
 mepa_device_t       *appl_malibu_device[APPL_PORT_COUNT];
+mepa_callout_ctx_t  appl_callout_ctx[APPL_PORT_COUNT];
 mepa_conf_t         appl_malibu_conf;
 
-mepa_callout_ctx_t  appl_callout_ctx;
-
-mepa_board_conf_t   appl_board_conf;        // Not used in the application since MEBA is not needed here.
+mepa_board_conf_t   appl_board_conf;        // Only used to specify port_no through numeric_handle
 
 // Define appl_rpi_spi. See rpi_spi.c for implementation details.
 mepa_callout_t appl_rpi_spi =
@@ -342,13 +339,13 @@ bool get_valid_port_no(mepa_port_no_t* port_no, char port_no_str[])
 
         // Fill application specific data in the context area. This is likely to
         // include bus instance, MDIO address etc.
-        memset(&appl_callout_ctx, 0, sizeof(appl_callout_ctx));
-        appl_callout_ctx.port_no = i;
+        memset(&appl_callout_ctx[i], 0, sizeof(appl_callout_ctx[i]));
+        appl_callout_ctx[i].port_no = i;
         
         // Create the MEPA devices
         // Real applications needs to check for error as well.
         appl_malibu_device[i] = mepa_create(&appl_rpi_spi,
-                                            &appl_callout_ctx,
+                                            &appl_callout_ctx[i],
                                             &appl_board_conf);
     }
 
