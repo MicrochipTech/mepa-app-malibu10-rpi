@@ -316,28 +316,6 @@ mepa_rc rpi_spi_32bit_read(
     return MEPA_RC_OK;
 }
 
-mepa_rc rpi_spi_16bit_write(
-            struct mepa_callout_ctx *ctx,
-            uint8_t             mmd,
-            uint16_t            addr,
-            uint16_t            value)
-{
-    return rpi_spi_32bit_write(ctx, ctx->port_no, mmd, addr, (uint32_t)value);
-}
-
-mepa_rc rpi_spi_16bit_read(
-                struct mepa_callout_ctx *ctx,
-                uint8_t             mmd,
-                uint16_t            addr,
-                uint16_t            *value)
-{
-    uint32_t *temp_value = value;
-    mepa_rc rc = rpi_spi_32bit_read(ctx, ctx->port_no, mmd, addr, temp_value);
-    *temp_value = (*temp_value & 0xFFFF);
-    *value = (uint16_t) (*temp_value);
-    return rc;
-}
-
 mepa_rc rpi_spi_32bit_read_rbt_test(
                 mepa_port_no_t port_no,
                 uint8_t             mmd,

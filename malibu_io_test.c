@@ -86,9 +86,6 @@ mepa_callout_t appl_rpi_spi =
 {
     .spi_read = rpi_spi_32bit_read,
     .spi_write = rpi_spi_32bit_write,
-    
-    .mmd_read = rpi_spi_16bit_read,
-    .mmd_write = rpi_spi_16bit_write,
 
     .mem_alloc = appl_mem_alloc,
     .mem_free = appl_mem_free,

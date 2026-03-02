@@ -46,20 +46,6 @@ mepa_rc rpi_spi_32bit_read(
                 uint16_t            addr,
                 uint32_t            *value);
 
-mepa_rc rpi_spi_16bit_write(
-            struct mepa_callout_ctx *ctx,
-            //mepa_port_no_t port_no,
-            uint8_t             mmd,
-            uint16_t            addr,
-            uint16_t            value);
-
-mepa_rc rpi_spi_16bit_read(
-                struct mepa_callout_ctx *ctx,
-                //mepa_port_no_t port_no,
-                uint8_t             mmd,
-                uint16_t            addr,
-                uint16_t            *value);
-
 mepa_rc rpi_spi_32bit_read_rbt_test(
                 mepa_port_no_t port_no,
                 uint8_t             mmd,
