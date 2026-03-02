@@ -585,6 +585,45 @@ bool get_valid_port_no(mepa_port_no_t* port_no, char port_no_str[])
             // SPI, we call the SPI callout directly through the wrapper function below.
             appl_spi_read_write(&appl_rpi_spi, &appl_callout_ctx[port_no], dev, addr, &val32, false);
             printf("\nRegister 0x%X:0x%04X: 0x%X\n\n", dev, addr, val32);
+
+            // Note: calling mepa_clause45_read() with only SPI Callouts provided will resolve to SPI calls, but the API
+            // function itself will truncate the read value to 16-bits as it only accepts a pointer to a uint16_t type.
+            continue;
+        }
+        else if (strcmp(command, "spiwr")  == 0)
+        {
+            uint32_t val32 = 0;
+            uint16_t dev = 0;
+            uint16_t addr = 0;
+
+            if (get_valid_port_no(&port_no, port_no_str) == false)
+            {
+                continue;
+            }
+
+            printf ("Enter Dev (in HEX, ie. 0x ): ");
+            memset (&value_str[0], 0, sizeof(value_str));
+            scanf("%s", &value_str[0]);
+            dev = strtol(value_str, NULL, 16);
+
+            printf ("Enter Dev (in HEX, ie. 0x ): ");
+            memset (&value_str[0], 0, sizeof(value_str));
+            scanf("%s", &value_str[0]);
+            addr = strtol(value_str, NULL, 16);
+
+            printf ("Enter Value (in HEX, ie. 0x ): ");
+            memset (&value_str[0], 0, sizeof(value_str));
+            scanf("%s", &value_str[0]);
+            val32 = strtol(value_str, NULL, 16);
+
+            // board->inst->init_conf.spi_32bit_read_write(board->inst, port_no, SPI_WR, dev, addr, &val32);
+            // Note: Since there are no MEPA functions that will allow PHY register access specifically through
+            // SPI, we call the SPI callout directly through the wrapper function below.
+            appl_spi_read_write(&appl_rpi_spi, &appl_callout_ctx[port_no], dev, addr, &val32, true);
+            printf("\nWrote 0x%X to Register 0x%X:0x%04X\n\n", val32, dev, addr);
+
+            continue;
+        }
             continue;
         }
     }
