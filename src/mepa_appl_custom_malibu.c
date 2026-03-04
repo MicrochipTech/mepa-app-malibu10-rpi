@@ -186,14 +186,73 @@ mepa_rc appl_mepa_reset_phy(mepa_port_no_t port_no)
     return mepa_reset(appl_malibu_device[port_no], &rst_conf);
 }
 
-mepa_rc appl_mepa_poll(mepa_port_no_t port_no)
+mepa_rc appl_mepa_status_get(mepa_port_no_t port_no)
 {
     mepa_rc rc = MEPA_RC_OK;
 
+#if 0
     mepa_status_t appl_status = {};
     rc = mepa_poll(appl_malibu_device[port_no], &appl_status);
     printf("Port: %d, rc: %d, Speed: %s, fdx: %s, Cu: %s, Fi: %s, Link: %s\n", port_no, rc, portspeed2txt[appl_status.speed], \
             appl_status.fdx? "Yes":"No", appl_status.copper? "Yes":"No", appl_status.fiber? "Yes":"No", appl_status.link? "Up" : "Down");
+#endif
+
+    // Note: mepa_poll() calls vtss.c > phy_10g_poll(), which calls vtss_phy_10g_status_get().
+    // However, mepa_poll() does not yet expose 10G PHY-specific statuses (as of SW-MEPA 2025.12), 
+    // such as PMA/PCS links, block lock, etc.
+    // So, we call vtss_phy_10g_status_get() directly below to get these statuses.
+    vtss_phy_10g_status_t status_10g = {};
+    vtss_phy_10g_cnt_t cnt = {};
+    phy10g_oper_mode_t oper_mode = appl_malibu_conf.conf_10g.oper_mode;
+
+    // Note: vtss_phy_10g_status_get() expects a vtss_inst_t struct to be passed to it.
+    // phy_10g_poll() is able to get this by typecasting the private 'data' member of mepa_device_t
+    // to another type (phy_data_t), which is only defined in vtss_private.h -- a header file that
+    // is not meant to be included by an application.
+    // Passing NULL still works because the internal VTSS APIs treat this as the default instance (see vtss_phy_inst_check())
+    if (vtss_phy_10g_status_get(NULL, port_no, &status_10g) != VTSS_RC_OK)
+    {
+        T_E("vtss_phy_10g_status_get() failed, port %d", port_no);
+        return MEPA_RC_ERROR;
+    }
+
+    // Print status
+    // Ref: vtss_appl_malibu_status_get() in vtss_appl_10g_phy_malibu.c
+    printf("Port %d %-6s %-12s %-16s %-12s %-12s\n", port_no, "", "Link", "Link-down-event", "Rx-Fault-Sticky", "Tx-Fault-Sticky");
+    printf ("Port %u:\n", port_no);
+    printf ("--------\n");
+    printf ("%-12s %-12s %-16s %-12s %-12s\n", "Line PMA:", status_10g.pma.rx_link?"Yes":"No",
+              status_10g.pma.link_down ? "Yes" : "No", status_10g.pma.rx_fault ? "Yes" : "No", status_10g.pma.tx_fault ? "Yes" : "No");
+    printf ("%-12s %-12s %-16s %-12s %-12s\n", "Host PMA:", status_10g.hpma.rx_link?"Yes":"No",
+            status_10g.hpma.link_down ? "Yes" : "No", status_10g.hpma.rx_fault ? "Yes" : "No", status_10g.hpma.tx_fault ? "Yes" : "No");
+    printf ("%-12s %-12s %-16s %-12s %-12s\n", "WIS:", oper_mode == VTSS_PHY_WAN_MODE ? status_10g.wis.rx_link ? "Yes" : "No" : "-",
+            oper_mode == VTSS_PHY_WAN_MODE ? status_10g.wis.link_down ? "Yes" : "No" : "-",
+            oper_mode == VTSS_PHY_WAN_MODE ? status_10g.wis.rx_fault ? "Yes" : "No" : "-",
+            oper_mode == VTSS_PHY_WAN_MODE ? status_10g.wis.tx_fault ? "Yes" : "No" : "-");
+    printf ("%-12s %-12s %-16s %-12s %-12s\n", "Line PCS:", status_10g.pcs.rx_link ? "Yes" : "No",
+            status_10g.pcs.link_down ? "Yes" : "No", status_10g.pcs.rx_fault ? "Yes" : "No", status_10g.pcs.tx_fault ? "Yes" : "No");
+    printf ("%-12s %-12s %-16s %-12s %-12s\n", "Host PCS:", status_10g.hpcs.rx_link ? "Yes" : "No",
+            status_10g.hpcs.link_down ? "Yes" : "No", status_10g.hpcs.rx_fault ? "Yes" : "No", status_10g.hpcs.tx_fault ? "Yes" : "No");
+    printf ("%-12s %-12s %-16s %-12s %-12s\n", "XAUI Status:", status_10g.xs.rx_link ? "Yes" : "No",
+            status_10g.xs.link_down ? "Yes" : "No", status_10g.xs.rx_fault ? "Yes" : "No", status_10g.xs.tx_fault ? "Yes" : "No");
+    printf ("%-12s %-12s \n", "Line 1G PCS:", status_10g.lpcs_1g ? "Yes" : "No");
+    printf ("%-12s %-12s \n", "Host 1G PCS:", status_10g.hpcs_1g ? "Yes" : "No");
+    printf ("%-12s %-12s \n", "Link UP:", status_10g.status ? "Yes" : "No");
+    printf ("%-12s %-12s \n", "Block lock:", status_10g.block_lock ? "Yes" : "No");
+    printf ("%-12s %-12s \n", "LOPC status:", status_10g.lopc_stat ? "Yes" : "No");
+
+    if (vtss_phy_10g_cnt_get(NULL, port_no, &cnt) != VTSS_RC_OK)
+    {
+        T_E("vtss_phy_10g_cnt_get failed, port %d", port_no);
+        return MEPA_RC_ERROR;
+    }
+    printf ("\n");
+    printf ("PCS counters:\n");
+    printf ("%-20s %-12s\n", "  Block_latched:", cnt.pcs.block_lock_latched ? "Yes" : "No");
+    printf ("%-20s %-12s\n", "  High_ber_latched:", cnt.pcs.high_ber_latched ? "Yes" : "No");
+    printf ("%-20s %-12d\n", "  Ber_cnt:", cnt.pcs.ber_cnt);
+    printf ("%-20s %-12d\n", "  Err_blk_cnt:", cnt.pcs.err_blk_cnt);
+    printf ("\n");
     
     return rc;
 }
@@ -524,7 +583,7 @@ bool get_valid_port_no(mepa_port_no_t* port_no, char port_no_str[])
                 continue;
             }
 
-            appl_mepa_poll(port_no);
+            appl_mepa_status_get(port_no);
 
             continue;
         }
@@ -690,19 +749,6 @@ bool get_valid_port_no(mepa_port_no_t* port_no, char port_no_str[])
             continue;
         }
     }
-
-    // Poll PHY ports.
-    // for(i = 0; i < 10; i++)
-    // {
-    //     for(j = 0; j < APPL_PORT_COUNT; j++)
-    //     {
-    //         rc = appl_mepa_poll(j);
-    //     }
-
-    //     printf("\n");
-    //     // printf("appl_mepa_poll: rc: %d\r\n\r\n", rc);
-    //     usleep(500000); // 500ms
-    // }
 
     return 0;
 }
