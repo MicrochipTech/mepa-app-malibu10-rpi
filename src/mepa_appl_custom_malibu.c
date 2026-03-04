@@ -701,7 +701,7 @@ bool appl_malibu_vscope_cntrl(mepa_port_no_t port_no)
             // printf (" ex_int   <port_no> - Set Ext Interuppts   |  ex_poll     <port_no>                                    \n");
             // printf (" ts_int   <port_no> - Set TS Interuppts    |  ts_poll     <port_no>                                    \n");
             // printf (" macsec   <port_no> - MACSEC Block config  |  1588        <port_no> - 1588 Block Config   \n");
-            // printf (" dbgdump  <port_no> - Reg Dump             |                                                \n");
+            printf (" dbgdump  <port_no> - Simple PHY Reg Dump  |                                                \n");
 
             printf ("\n exit - Exit Program \n");
             printf (" \n");
@@ -890,6 +890,30 @@ bool appl_malibu_vscope_cntrl(mepa_port_no_t port_no)
             // since there are no VSCOPE APIs in MEPA yet.
             // Ref: https://support.microchip.com/s/article/VSC8258EV---Run-the-phy-demo-appl-Example-on-a-Raspberry-Pi
             appl_malibu_vscope_cntrl(port_no);
+
+            continue;
+        }
+        else if (strcmp(command, "dbgdump")  == 0)
+        {
+            if (get_valid_port_no(&port_no, port_no_str) == false)
+            {
+                continue;
+            }
+
+            // Note Code below was taken from mesa/phy_demo_appl/appl/vtss_appl_10g_phy_malibu.c
+            // since there are no MEPA equivalents for vtss_phy_10g_debug_register_dump() yet (as of SW-MEPA 2025.12)
+            /* ********************************************************** */
+            /* ******    DEBUG REG PRINT OUT          ******************* */
+            /* ********************************************************** */
+
+            vtss_debug_printf_t pr = (vtss_debug_printf_t) printf;
+            printf("\n==========================================================\n");
+            printf("Debug Reg Dump for Port %d\n", port_no);
+            if (vtss_phy_10g_debug_register_dump(NULL, pr, FALSE, port_no) != VTSS_RC_OK)
+            {
+                T_E("vtss_phy_10g_debug_register_dump, port %d\n", port_no);
+            }
+            printf("==========================================================\n");
 
             continue;
         }
