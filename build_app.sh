@@ -60,8 +60,8 @@
 # TESTMAC=ECHO 
 # echo $TESTMAC
 
-INCLUDES="-I include_common/ -I ."
-SOURCES="mepa_appl_custom_malibu.c rpi_spi.c io_test.c "
+INCLUDES="-I include_common/ -I src/"
+SOURCES="src/mepa_appl_custom_malibu.c src/rpi_spi.c src/io_test.c "
 DEBUGBUILD="-g"
 ERRORCHECK="-W -Werror -Wall"
 WARNINGCHECK="-Wno-error=implicit-function-declaration -Wno-error=int-conversion -Wno-error=incompatible-pointer-types"
@@ -71,4 +71,5 @@ MACROS="-DAPPL_TRACE_LVL_ERROR"
 
 COMPILECOMMAND="gcc $INCLUDES $SOURCES $DEBUGBUILD $WARNINGCHECK $STATICLIBS $MACROS -o malibu_custom"
 echo $COMPILECOMMAND
+echo ""
 $COMPILECOMMAND
