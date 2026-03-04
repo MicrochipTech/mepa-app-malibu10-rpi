@@ -1,6 +1,6 @@
 /* 
  * Custom program for VSC8258 using MEPA.
- * Code is loosely-based on phy_demo_appl/vtss_appl_10g_phy_malibu.c
+ * Code is loosely-based on mesa/phy_demo_appl/appl/vtss_appl_10g_phy_malibu.c
  *
  * Copyright (C) 2026 Microchip Technology Inc.
  *
@@ -36,7 +36,7 @@
 // MEPA includes
 #include "microchip/ethernet/phy/api.h"
 #include "microchip/ethernet/board/api.h"
-#include "vtss_phy_10g_api.h"       // For vtss_phy_10g_mode_t
+#include "vtss_phy_10g_api.h"       // Included for the VTSS 10G PHY APIs.
 
 // Other includes
 #include "rpi_spi.h"        // For the SPI accessor functions
@@ -654,7 +654,7 @@ bool appl_malibu_vscope_cntrl(mepa_port_no_t port_no)
     }
 
     // Set the PHY Configuration for each port.
-    // Reference: vtss_appl_10g_phy_malibu.c > 1st for loop of main()
+    // Reference: mesa/phy_demo_appl/appl/vtss_appl_10g_phy_malibu.c > 1st for loop of main()
     // Also, refer to board-configs/src/sparx5/meba.c > malibu_init()
     for(i = 0; i < APPL_PORT_COUNT; i++)
     {
@@ -681,13 +681,13 @@ bool appl_malibu_vscope_cntrl(mepa_port_no_t port_no)
     /* ****************************************************** */
     /*                       Main Demo                        */
     /* ****************************************************** */ 
-    // Reference: vtss_appl_10g_phy_malibu.c
+    // Reference: mesa/phy_demo_appl/appl/vtss_appl_10g_phy_malibu.c
     while(1)
     {
         {
             printf (" *************************************\n");
             printf (" The following commands are supported:\n");
-            printf (" dump <port_no> - Dump PHY, PHY_TS, MACsec, or ALL register groups for Port \n");
+            printf (" dump <port_no> - Dump detailed PHY, PHY_TS, MACsec, or ALL register groups for Port \n");
             printf (" ----------------------------------------  |  ------------------------------------------------------- \n");
             printf (" spird    <port_no> <dev> <addr>           |  spiwr       <port_no> <dev> <addr> <value> - Value MUST be in hex\n");
             printf (" get_lmedia <port_no> - Get Line Media I/F |  set_lmedia  <port_no> - Set Line Media I/F for port \n");
@@ -886,7 +886,7 @@ bool appl_malibu_vscope_cntrl(mepa_port_no_t port_no)
                 continue;
             }
 
-            // Note: function below was taken directly from MESA 2021.09 > phy_demo_appl/appl/vtss_appl_10g_phy_malibu.c
+            // Note: function below was taken directly from mesa/phy_demo_appl/appl/vtss_appl_10g_phy_malibu.c
             // since there are no VSCOPE APIs in MEPA yet.
             // Ref: https://support.microchip.com/s/article/VSC8258EV---Run-the-phy-demo-appl-Example-on-a-Raspberry-Pi
             appl_malibu_vscope_cntrl(port_no);
