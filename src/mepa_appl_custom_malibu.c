@@ -32,6 +32,7 @@
 #include <stdio.h>
 #include <unistd.h>     // For usleep()
 #include <stdint.h>
+#include <ctype.h>      // For isprint(), used in "sfpdump" command
 
 // MEPA includes
 #include "microchip/ethernet/phy/api.h"
@@ -664,7 +665,7 @@ mepa_rc appl_malibu_gpio_conf(mepa_port_no_t port_no)
     /* ********************************************************** */
     // GPIO Output functionality
     /* ********************************************************** */
-    // TXDIS
+    // TX_DIS
     rc = vtss_phy_10g_gpio_mode_get(NULL, port_no, gmap->gpio_tx_dis, &gpio_conf);
     if(rc == VTSS_RC_OK)
     {
@@ -686,7 +687,7 @@ mepa_rc appl_malibu_gpio_conf(mepa_port_no_t port_no)
     /* ********************************************************** */
     // GPIO I2C Pins
     /* ********************************************************** */
-    // SDA
+    // I2C_DAT
     rc = vtss_phy_10g_gpio_mode_get(NULL, port_no, gmap->gpio_i2c_dat, &gpio_conf);
     if(rc == VTSS_RC_OK)
     {
@@ -707,7 +708,7 @@ mepa_rc appl_malibu_gpio_conf(mepa_port_no_t port_no)
         printf("Malibu GPIO Output: I2C Master DATA configuration for port %d, gpio %d\n", port_no, gmap->gpio_i2c_dat);
     }
 
-    // SCL
+    // I2C_CLK
     rc = vtss_phy_10g_gpio_mode_get(NULL, port_no, gmap->gpio_i2c_clk, &gpio_conf);
     if(rc == VTSS_RC_OK)
     {
@@ -995,7 +996,7 @@ mepa_rc appl_malibu_gpio_conf(mepa_port_no_t port_no)
             // printf (" 10g_kr   <port_no> - 10G Base KR          |  synce       <port_no> - Sync-E Config   \n");
             // printf (" prbs     <port_no> - PRBS                 |  obuf        <port_no> - Output Buf Control  \n");
             printf (" status   <port_no> - Rtn PHY Link status  |  vscope      <port_no> - Config for VSCOPE FAST/FULL SCAN \n");
-            // printf (" lpback   <port_no> - Set PHY Loopback     |  sfpdump     <port_no> <i2c_addr> - Dump SFP register connected to port_no\n");
+            printf (" lpback   <port_no> - Set PHY Loopback     |  sfpdump     <port_no> <i2c_addr> - Dump SFP register connected to port_no\n");
             // printf (" int10g   <port_no> - Set 10g Interuppts   |  poll10g     <port_no>                                    \n");
             // printf (" ex_int   <port_no> - Set Ext Interuppts   |  ex_poll     <port_no>                                    \n");
             // printf (" ts_int   <port_no> - Set TS Interuppts    |  ts_poll     <port_no>                                    \n");
@@ -1122,12 +1123,12 @@ mepa_rc appl_malibu_gpio_conf(mepa_port_no_t port_no)
                 continue;
             }
 
-            printf ("Enter Dev (in HEX, ie. 0x ): ");
+            printf ("Enter Dev/MMD (in HEX, ie. 0x ): ");
             memset (&value_str[0], 0, sizeof(value_str));
             scanf("%s", &value_str[0]);
             dev = strtol(value_str, NULL, 16);
 
-            printf ("Enter Dev (in HEX, ie. 0x ): ");
+            printf ("Enter Addr (in HEX, ie. 0x ): ");
             memset (&value_str[0], 0, sizeof(value_str));
             scanf("%s", &value_str[0]);
             addr = strtol(value_str, NULL, 16);
@@ -1213,6 +1214,64 @@ mepa_rc appl_malibu_gpio_conf(mepa_port_no_t port_no)
                 T_E("vtss_phy_10g_debug_register_dump, port %d\n", port_no);
             }
             printf("==========================================================\n");
+            
+            continue;
+        }
+        else if (strcmp(command, "sfpdump")  == 0)
+        {
+            // sfpdump     <port_no> <i2c_addr> 
+            uint8_t sfpdata[256];
+            uint32_t i2c_addr = 0;
+            uint32_t val32 = 0;
+            int i, j;
+            memset(sfpdata, 0, sizeof(sfpdata));
+
+            if (get_valid_port_no(&port_no, port_no_str) == false)
+            {
+                continue;
+            }
+
+            printf("Enter I2C Slave Address (in HEX, ie. 0x): ");
+            memset (&value_str[0], 0, sizeof(value_str));
+            scanf("%s", &value_str[0]);
+            i2c_addr = strtol(value_str, NULL, 16);
+
+            // Read 0x1C:0x0000 first to get the current I2C Slave address value
+            appl_spi_read_write(&appl_rpi_spi, &appl_callout_ctx[port_no], 0x01, 0xC000, &val32, false);
+            
+            // Then write the i2c_addr...
+            appl_spi_read_write(&appl_rpi_spi, &appl_callout_ctx[port_no], 0x01, 0xC000, &i2c_addr, true);
+            
+            // Read back value to be sure...
+            appl_spi_read_write(&appl_rpi_spi, &appl_callout_ctx[port_no], 0x01, 0xC000, &val32, false);
+            printf("\r\n0x01:0xC000 new value: 0x%X\r\n\r\n", val32);
+
+            // Now read through the SFP registers...
+            for (i = 0; i < 256; i++)
+            {
+                if (mepa_i2c_read(appl_malibu_device[port_no], 0, i, 0, 0, 0, &sfpdata[i]) != VTSS_RC_OK)
+                {
+                    T_E("mepa_i2c_read, port %d\n", port_no);
+                    printf("Malibu Error reading I2C register on SFP+ module for port %d\n", port_no);
+                }
+            }
+
+            // Print the SFP Dump!
+            printf("Dumping SFP Address 0x%X\n", i2c_addr);
+            for(i = 0; i < 16; i++)
+            {
+                printf("%02X: ", i);
+                for(j = 0; j < 16; j++)
+                {
+                    printf("%02X ", sfpdata[j+(16*i)]);
+                }
+                printf(" ");
+                for(j = 0; j < 16; j++)
+                {
+                    printf("%c", isprint(sfpdata[j+(16*i)])? sfpdata[j+(16*i)] : '.');
+                }
+                printf("\r\n");
+            }
 
             continue;
         }
