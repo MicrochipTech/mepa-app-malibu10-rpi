@@ -381,6 +381,134 @@ bool get_valid_port_no(mepa_port_no_t* port_no, char port_no_str[])
    return false;
 }
 
+bool appl_malibu_vscope_cntrl(mepa_port_no_t port_no)
+{
+    mepa_rc rc = 0;
+    int i=0;
+    int j=0;
+    char value_str[255] = {0};
+    vtss_phy_10g_vscope_conf_t vscope_conf;             // FAST SCAN
+    vtss_phy_10g_vscope_scan_conf_t vscope_scan_conf;   // FULL SCAN parameters -- does not apply to FAST SCAN
+    vtss_phy_10g_vscope_scan_status_t scan_status;
+
+    // Initialize all structs to 0
+    memset(&vscope_conf, 0, sizeof(vtss_phy_10g_vscope_conf_t));
+    memset(&vscope_scan_conf, 0, sizeof(vtss_phy_10g_vscope_scan_conf_t));
+    memset(&scan_status, 0, sizeof(vtss_phy_10g_vscope_scan_status_t));
+
+    // There are 2 options:
+    // -- Fast Scan --> VTSS_PHY_10G_FAST_SCAN
+    // -- Full Vscope --> VTSS_PHY_10G_FULL_SCAN
+    printf ("Configure VSCOPE:  0=FULL SCAN   1=FAST SCAN  \n");
+    memset (&value_str[0], 0, sizeof(value_str));
+    scanf("%s", &value_str[0]);
+
+    if (value_str [0] == '1')
+    {
+        vscope_conf.scan_type = VTSS_PHY_10G_FAST_SCAN;
+    }
+    else
+    {
+        vscope_conf.scan_type = VTSS_PHY_10G_FULL_SCAN;
+    }
+
+    vscope_conf.line = TRUE;
+    vscope_conf.enable = TRUE;
+    vscope_conf.error_thres = 3;
+
+    if (vscope_conf.scan_type == VTSS_PHY_10G_FAST_SCAN)
+    {
+        printf("VSCOPE Config:  VTSS_PHY_10G_FAST_SCAN !\n");
+    }
+    else if (vscope_conf.scan_type == VTSS_PHY_10G_FULL_SCAN)
+    {
+        printf("VSCOPE Config:  VTSS_PHY_10G_FULL_SCAN !\n");
+    }
+    else
+    {
+        printf("VSCOPE Config:  ERROR VSCOPE MISCONFIGURED !\n");
+    }
+
+    /* x_start can be anything from 0 (LHS of the sampling window) to 127, but do not recommend than greater than 20% of U.I.  Generally no
+    reason to use x_start other than 0.
+    */
+    /* y_axis has a center point at count 31-32 (it's 6 bit counter).  Generally +/-12 is sufficient for a typical eye visulation (efficient run time)
+    */
+    /* x_incr and y_incr = 0 is to collect all points.  Increment by n to skip every nth point.
+    */
+    /* ber is TBD for definition - unclear whether e.g. value 5 means 10^-5 i.e. an undefined confidence for the BER value input.
+    note the GDC sample count is unknown how implemented in the digital HW.
+    */
+    /* note overall:  the vscope_scan_conf arguments are all directly written to SD10G registers.  I.e. digitial PMA performs this processing
+    */
+    /* notes about results:  the error_free_y returned from FAST_SCAN is "inner bounds".  the amp_range returned from FAST_SCAN is "outer bound" i.e. the
+    maximum  amplitude swing observed at receiver.  However the statistical confidence of the reported "inner_bound" depends on the GDC sampling/count
+    for the ber parameter passed in [a relationship which is unknown at this time w/o GDC help].
+    */
+
+    vscope_scan_conf.x_start = 0;
+    vscope_scan_conf.y_start = 20;
+    vscope_scan_conf.x_count = 127;
+    vscope_scan_conf.y_count = 25;
+    vscope_scan_conf.x_incr = 0;
+    vscope_scan_conf.y_incr = 0;
+    vscope_scan_conf.ber = 5;
+
+    scan_status.scan_conf = vscope_scan_conf;
+
+    if (vtss_phy_10g_vscope_conf_set(NULL, port_no, &vscope_conf) != VTSS_RC_OK)
+    {
+        printf("Malibu Error setting 10G Serdes VScope configuration on Port %d \n", port_no);
+    }
+    else
+    {
+        // Get the results
+        printf("\nMalibu VSCOPE successfully configured\n");
+        if((rc = vtss_phy_10g_vscope_scan_status_get(NULL, port_no, &scan_status)) != VTSS_RC_OK)
+        {
+            printf("Malibu Error Fetching VSCOPE data\n");
+        }
+        else
+        {
+            if (vscope_conf.scan_type == VTSS_PHY_10G_FAST_SCAN)
+            {
+                printf("FAST SCAN error free x points: %d\n", scan_status.error_free_x);
+                printf("FAST SCAN error free y points: %d\n", scan_status.error_free_y);
+                printf("FAST SCAN amplitude range: %d\n", scan_status.amp_range);
+            }
+            else if (vscope_conf.scan_type == VTSS_PHY_10G_FULL_SCAN)
+            {
+                // Create a data eye on a screen --> "X" for no errors, "." for errors
+                printf("VScope FULL SCAN for Port %d are as follows:\n", port_no);
+                for(j=vscope_scan_conf.y_start; j < (vscope_scan_conf.y_start + vscope_scan_conf.y_count); j = j + vscope_scan_conf.y_incr + 1)
+                {
+                    if (scan_status.errors[0][j] == 0)
+                        j++;
+
+                    printf("\n");
+
+                    for(i=vscope_scan_conf.x_start; i < (vscope_scan_conf.x_start + vscope_scan_conf.x_count) ;i = i + vscope_scan_conf.x_incr + 1)
+                    {
+                        if(scan_status.errors[i][j] == 0)
+                            printf("X");
+                        else
+                            printf(".");
+                    }
+                }
+
+                printf("\n");
+            }
+            else
+            {
+                printf("Scan Type not supported\n");
+            }
+        }
+    }
+    
+    return true;
+}
+
+
 // *****************************************************************************
 // *****************************************************************************
 // Section: Main Entry Point
@@ -399,6 +527,12 @@ bool get_valid_port_no(mepa_port_no_t* port_no, char port_no_str[])
     uint32_t val32 = 0;
     uint16_t value = 0;
     mepa_port_no_t port_no=0;
+
+    // Note: VTSS APIs normally expect a vtss_inst_t struct to be passed to them.
+    // Normally, MEPA APIs can get the vtss_inst_t struct by typecasting a member of the mepa_device_t instance
+    // to another data type (which is only exposed to the PHY Drivers).
+    // Thus, any VTSS APIs called directly by this application will pass 'NULL' as the vtss_inst_t value,
+    // as the internal APIs treat this as the default instance (see vtss_phy_inst_check())
 
     printf("Raspberry Pi 5 Malibu Code.\r\n");
 
@@ -704,7 +838,6 @@ bool get_valid_port_no(mepa_port_no_t* port_no, char port_no_str[])
             scanf("%s", &value_str[0]);
             val32 = strtol(value_str, NULL, 16);
 
-            // board->inst->init_conf.spi_32bit_read_write(board->inst, port_no, SPI_WR, dev, addr, &val32);
             // Note: Since there are no MEPA functions that will allow PHY register access specifically through
             // SPI, we call the SPI callout directly through the wrapper function below.
             appl_spi_read_write(&appl_rpi_spi, &appl_callout_ctx[port_no], dev, addr, &val32, true);
@@ -746,6 +879,18 @@ bool get_valid_port_no(mepa_port_no_t* port_no, char port_no_str[])
             printf("Port %d Host Media type: %s\n", port_no, mediatype2txt[appl_malibu_conf.conf_10g.h_media]);
             continue;;
         }
+        else if (strcmp(command, "vscope")  == 0)
+        {
+            if (get_valid_port_no(&port_no, port_no_str) == false)
+            {
+                continue;
+            }
+
+            // Note: function below was taken directly from MESA 2021.09 > phy_demo_appl/appl/vtss_appl_10g_phy_malibu.c
+            // since there are no VSCOPE APIs in MEPA yet.
+            // Ref: https://support.microchip.com/s/article/VSC8258EV---Run-the-phy-demo-appl-Example-on-a-Raspberry-Pi
+            appl_malibu_vscope_cntrl(port_no);
+
             continue;
         }
     }
