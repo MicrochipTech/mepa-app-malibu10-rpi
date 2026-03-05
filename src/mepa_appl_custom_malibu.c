@@ -363,12 +363,23 @@ mepa_rc appl_mepa_status_get(mepa_port_no_t port_no)
     printf ("%-12s %-12s \n", "Block lock:", status_10g.block_lock ? "Yes" : "No");
     printf ("%-12s %-12s \n", "LOPC status:", status_10g.lopc_stat ? "Yes" : "No");
 
+    // Print current operating mode!
+    printf ("%-12s %-12s \n", "PHY OpMode:", (oper_mode == MEPA_PHY_LAN_MODE) ? "MEPA_PHY_LAN_MODE" : 
+                                               (oper_mode == MEPA_PHY_1G_MODE)  ?  "MEPA_PHY_1G_MODE" :
+                                               (oper_mode == MEPA_PHY_WAN_MODE)  ?  "MEPA_PHY_WAN_MODE" :
+                                               (oper_mode == MEPA_PHY_REPEATER_MODE)  ?  "MEPA_PHY_REPEATER_MODE" :
+                                               "Undefined!");
+
     // Show CL37 status
     if(oper_mode == MEPA_PHY_1G_MODE)
     {
         printf ("%-12s %-12s \n", "CL37 ANEG:", ((appl_malibu_conf.speed == MESA_SPEED_AUTO)) ? "Enabled" : "Disabled");
     }
-    
+    // Show repeater speed
+    if(oper_mode == MEPA_PHY_REPEATER_MODE)
+    {
+        printf ("%-12s %-12s \n", "PHY Speed:", ((appl_malibu_conf.speed == MESA_SPEED_10G)) ? "10G" : "1G");
+    }
 
     if (vtss_phy_10g_cnt_get(NULL, port_no, &cnt) != VTSS_RC_OK)
     {
