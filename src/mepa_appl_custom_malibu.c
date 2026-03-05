@@ -467,13 +467,25 @@ bool get_valid_port_no(mepa_port_no_t* port_no, char port_no_str[])
 
 bool appl_malibu_vscope_cntrl(mepa_port_no_t port_no)
 {
-    mepa_rc rc = 0;
+    vtss_rc rc = VTSS_RC_OK;
     int i=0;
     int j=0;
     char value_str[255] = {0};
     vtss_phy_10g_vscope_conf_t vscope_conf;             // FAST SCAN
     vtss_phy_10g_vscope_scan_conf_t vscope_scan_conf;   // FULL SCAN parameters -- does not apply to FAST SCAN
     vtss_phy_10g_vscope_scan_status_t scan_status;
+
+    // NOTE! VSCOPE is only available in 10G Modes!
+    // Refer to the Datasheet, Section 3.2.2
+    // https://ww1.microchip.com/downloads/en/DeviceDoc/VMDS-10487.pdf
+    mepa_conf_get(appl_malibu_device[port_no], &appl_malibu_conf);
+    phy10g_oper_mode_t oper_mode = appl_malibu_conf.conf_10g.oper_mode;
+    if( (oper_mode != MEPA_PHY_LAN_MODE) )
+    {
+        printf("\nNOTE: The VScope input signal monitoring integrated circuit feature is only available in the 10G operation mode.\n\n");
+        return false;
+    }
+    
 
     // Initialize all structs to 0
     memset(&vscope_conf, 0, sizeof(vtss_phy_10g_vscope_conf_t));
