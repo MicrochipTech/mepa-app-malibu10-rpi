@@ -1139,34 +1139,7 @@ mepa_rc appl_malibu_loopback_conf(mepa_port_no_t port_no)
     /* ****************************************************** */
     /*                       PHY Bring-up                     */
     /* ****************************************************** */    
-    printf("Configuring Operating MODE for ALL Ports; 0=MODE_10GLAN; 1=MODE_1GLAN; 2=MODE_10GWAN; 3=MODE_10GRPTR; 4=MODE_1GRPTR\n");
-    printf("Enter Oper_MODE (0/1/2/3/4): ");
-    memset(&value_str[0], 0, sizeof(value_str));
-    scanf("%s", &value_str[0]);
-    phy_mode = atoi(value_str);
-    printf("\n");
-
-    switch (phy_mode)
-    {
-        case PHY_MODE_10G_LAN:
-            printf ("Operating MODE for ALL Ports: 0=MODE_10GLAN\n");
-            break;
-        case PHY_MODE_1G_LAN:
-            printf ("Operating MODE for ALL Ports: 1=MODE_1GLAN\n");
-            break;
-        case PHY_MODE_10G_WAN:
-            printf ("Operating MODE for ALL Ports: 2=MODE_10GWAN\n");
-            break;
-        case PHY_MODE_10G_RPTR:
-            printf ("Operating MODE for ALL Ports: 3=MODE_10G_RPTR\n");
-            break;
-        case PHY_MODE_1G_RPTR:
-            printf ("Operating MODE for ALL Ports: 4=MODE_1G_RPTR\n");
-            break;
-        default:
-            printf ("Operating MODE ALL Ports INVALID, Setting 10G_LAN Mode \n");
-            phy_mode = 0;
-    }
+    phy_mode = appl_mepa_set_oper_mode();
 
     // Reset and configure PHY ports
     // See sw-mepa/mepa/docs/linkup_config.adoc#reset-configuration
@@ -1232,14 +1205,14 @@ mepa_rc appl_malibu_loopback_conf(mepa_port_no_t port_no)
             // printf (" 10g_kr   <port_no> - 10G Base KR          |  synce       <port_no> - Sync-E Config   \n");
             // printf (" prbs     <port_no> - PRBS                 |  obuf        <port_no> - Output Buf Control  \n");
             printf (" status   <port_no> - Rtn PHY Link status  |  vscope      <port_no> - Config for VSCOPE FAST/FULL SCAN \n");
-            printf (" lpback   <port_no> - Set PHY Loopback     |                                                           \n");
+            printf (" lpback   <port_no> - Set PHY Loopback     |  oper_mode             - Re-configure all PHY Ports for the desired configuration.\n");
             // printf (" int10g   <port_no> - Set 10g Interuppts   |  poll10g     <port_no>                                    \n");
             // printf (" ex_int   <port_no> - Set Ext Interuppts   |  ex_poll     <port_no>                                    \n");
             // printf (" ts_int   <port_no> - Set TS Interuppts    |  ts_poll     <port_no>                                    \n");
             // printf (" macsec   <port_no> - MACSEC Block config  |  1588        <port_no> - 1588 Block Config   \n");
             printf (" dbgdump  <port_no> - Simple PHY Reg Dump  |                                                \n");
-            printf (" sfpdump  <port_no> <i2c_addr> - SFP Dump  | sfp_status <port_no> - Basic SFP Status Info\n");
-            printf (" sfp_txdis <port_no> - Disable TX on SFP   | sfp_txen <port_no>   - Enable TX on SFP\n");
+            printf (" sfpdump  <port_no> <i2c_addr> - SFP Dump  |  sfp_status <port_no> - Basic SFP Status Info\n");
+            printf (" sfp_txdis <port_no> - Disable TX on SFP   |  sfp_txen <port_no>   - Enable TX on SFP\n");
 
             printf ("\n exit - Exit Program \n");
             printf (" \n");
@@ -1631,6 +1604,34 @@ mepa_rc appl_malibu_loopback_conf(mepa_port_no_t port_no)
             
             appl_malibu_loopback_conf(port_no);
 
+            continue;
+        }
+        else if (strcmp(command, "oper_mode")  == 0)
+        {
+            phy_mode = appl_mepa_set_oper_mode();
+
+            // Reset and configure PHY ports
+            // See sw-mepa/mepa/docs/linkup_config.adoc#reset-configuration
+            // mepa_reset() is called before mepa_conf_set()
+            for(i = 0; i < APPL_PORT_COUNT; i++)
+            {
+                printf("Resetting port %d\n", i);
+                rc = appl_mepa_reset_phy(i);
+                printf("appl_mepa_reset_phy: rc: %d\n\n", rc);
+            }
+                    
+            // Wait for PHY to stabilize - around 1s
+            usleep(1000000);
+
+            // Set the PHY Configuration for each port.
+            // Reference: mesa/phy_demo_appl/appl/vtss_appl_10g_phy_malibu.c > 1st for loop of main()
+            // Also, refer to board-configs/src/sparx5/meba.c > malibu_init()
+            for(i = 0; i < APPL_PORT_COUNT; i++)
+            {
+                printf("Configuring port %d\n", i);
+                rc = appl_mepa_phy_init(i, phy_mode);
+                printf("appl_mepa_phy_init: rc: %d\n\n", rc);
+            }
             continue;
         }
     }
