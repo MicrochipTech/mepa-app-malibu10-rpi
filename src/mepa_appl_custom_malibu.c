@@ -829,6 +829,144 @@ void appl_malibu_sfp_rom_get(mepa_port_no_t port_no, uint8_t *data, unsigned int
     return;
 }
 
+mepa_rc appl_malibu_loopback_conf(mepa_port_no_t port_no)
+{
+    /*
+     Note: with MEPA, the usual way to setup PHYs for loopback would be
+     to use mepa_loopback_get/set() functions. However, as of
+     SW-MEPA v2025.12, there is no implementation yet of these APIs for VSC825x (Malibu10)
+     PHYs. Thus, we call VTSS APIs directly below.
+    */
+   // Note that the code below was taken from the lpback implementation
+   // of mesa/phy_demo_appl/appl/vtss_appl_10g_phy_malibu.c
+
+    mepa_rc rc = MEPA_RC_OK;
+    vtss_phy_10g_loopback_t    lpback;
+    vtss_lb_type_t             lpback_type = VTSS_LB_NONE;
+    char                       lpback_descr[6];
+    char                       value_str[255] = {0};
+    
+    memset (&lpback_descr[0], 0, sizeof(lpback_descr));
+
+    // Populate the lpback struct
+    vtss_phy_10g_loopback_get(NULL, port_no, &lpback);
+
+    // Print current loopback setting in the PHY.
+    switch (lpback.lb_type)
+    {
+        case VTSS_LB_NONE:  snprintf(lpback_descr, 5, "NONE");   break;
+        case VTSS_LB_H2:    snprintf(lpback_descr, 3, "H2");     break;
+        case VTSS_LB_H3:    snprintf(lpback_descr, 3, "H3");     break;
+        case VTSS_LB_H4:    snprintf(lpback_descr, 3, "H4");     break;
+        case VTSS_LB_L1:    snprintf(lpback_descr, 3, "L1");     break;
+        case VTSS_LB_L2:    snprintf(lpback_descr, 3, "L2");     break;
+        case VTSS_LB_L3:    snprintf(lpback_descr, 3, "L3");     break;
+        case VTSS_LB_L2C:   snprintf(lpback_descr, 4, "L2C");    break;
+        default:
+            printf ("Current Loopback Description INVALID,  Port_no: %d \n",  port_no);
+            memset (&lpback_descr[0], 0, sizeof(lpback_descr));
+    }
+
+    printf ("Current Loopback is: %s  Type: %s \n\n",  (lpback.enable ? "Enabled" : "Disabled"), lpback_descr);
+
+    // Ask user to input the desired Loopback mode!
+    // Refer to the Device Datasheet, Section 3.10 for what these modes mean!
+    // https://ww1.microchip.com/downloads/en/DeviceDoc/VMDS-10487.pdf
+    printf ("Loopback Options for Port: %d \n", port_no);
+    printf ("  H2: Host Loopback 2, Host PMA Interface (1G and 10G)\n");
+    printf ("  H3: Host Loopback 3, Line PCS after the gearbox (10G) \n");
+    printf ("  H4: Host Loopback 4, WIS-line PMA interface (10G) \n");
+    printf ("  L1: Line Loopback 1, Host PCS after the gearbox (10G) \n");
+    printf ("  L2: Line Loopback 2, XGMII interface (1G and 10G)\n");
+    printf ("  L3: Line Loopback 3, Line PMA interface (1G and 10G) \n");
+    printf (" L2C: Line Loopback 2C, Line loopback 2 after cross connect    \n\n");
+    printf ("Enter Loopback Type: H2/H3/H4/L1/L2/L3/L2C \n");
+    memset (&value_str[0], 0, sizeof(value_str));
+    scanf("%s", &value_str[0]);
+
+    if (value_str [0] == 'h' || value_str [0] == 'H' )
+    {
+        switch (value_str [1])
+        {
+            case '2':
+                lpback_type = VTSS_LB_H2;
+                break;
+            case '3':
+                lpback_type = VTSS_LB_H3;
+                break;
+            case '4':
+                lpback_type = VTSS_LB_H4;
+                break;
+            default:
+                break;
+        }
+    }
+    else if (value_str [0] == 'l' || value_str [0] == 'L' )
+    {
+        switch (value_str [1])
+        {
+            case '1':
+                lpback_type = VTSS_LB_L1;
+                break;
+            case '2':
+                if (value_str [2] == 'c' || value_str [2] == 'C')
+                {
+                    lpback_type = VTSS_LB_L2C;
+                } 
+                else
+                {
+                    lpback_type = VTSS_LB_L2;
+                }
+                break;
+            case '3':
+                lpback_type = VTSS_LB_L3;
+                break;
+            default:
+                break;
+        }
+
+    }
+    else
+    {
+        lpback_type = VTSS_LB_NONE;
+    }
+
+    lpback.lb_type = lpback_type;
+    switch (lpback.lb_type)
+    {
+        case VTSS_LB_NONE:  snprintf(lpback_descr, 5, "NONE");   break;
+        case VTSS_LB_H2:    snprintf(lpback_descr, 3, "H2");     break;
+        case VTSS_LB_H3:    snprintf(lpback_descr, 3, "H3");     break;
+        case VTSS_LB_H4:    snprintf(lpback_descr, 3, "H4");     break;
+        case VTSS_LB_L1:    snprintf(lpback_descr, 3, "L1");     break;
+        case VTSS_LB_L2:    snprintf(lpback_descr, 3, "L2");     break;
+        case VTSS_LB_L3:    snprintf(lpback_descr, 3, "L3");     break;
+        case VTSS_LB_L2C:   snprintf(lpback_descr, 4, "L2C");    break;
+        default:
+            printf ("Current Loopback Description INVALID,  Port_no: %d \n",  port_no);
+            memset (&lpback_descr[0], 0, sizeof(lpback_descr));
+    }
+    
+    printf ("Selected Loopback Type: %s \n",  lpback_descr);
+    printf ("E=Enable or D=Disable Loopback? \n");
+    memset (&value_str[0], 0, sizeof(value_str));
+    scanf("%s", &value_str[0]);
+
+    if (value_str [0] == 'e' || value_str [0] == 'E')
+    {
+        lpback.enable = 1;
+    }
+    else
+    {
+        lpback.enable = 0;
+    }
+
+    printf ("Port %d, Setting Loopback Type: %s  to  %s  \n",  port_no, lpback_descr, (lpback.enable ? "Enabled" : "Disabled"));
+    vtss_phy_10g_loopback_set(NULL, port_no, &lpback);
+
+    return rc;
+}
+
 
 // *****************************************************************************
 // *****************************************************************************
@@ -1415,6 +1553,17 @@ void appl_malibu_sfp_rom_get(mepa_port_no_t port_no, uint8_t *data, unsigned int
             {
                 printf("TX Enabled (GPIO%d) on SFP for Port %d!\n", malibu_gpio_map[port_no].gpio_tx_dis, port_no);
             }
+            
+            continue;
+        }
+        else if (strcmp(command, "lpback")  == 0)
+        {
+            
+            if (get_valid_port_no(&port_no, port_no_str) == FALSE) {
+                continue;
+            }
+            
+            appl_malibu_loopback_conf(port_no);
 
             continue;
         }
