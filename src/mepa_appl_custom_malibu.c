@@ -1300,6 +1300,112 @@ void appl_malibu_sfp_rom_get(mepa_port_no_t port_no, uint8_t *data, unsigned int
 
             continue;
         }
+        else if (strcmp(command, "sfp_status")  == 0)
+        {
+            mepa_bool_t rxlos, txfault, txdis, moddet;
+            uint8_t sfpdata[256];
+            memset(sfpdata, 0, sizeof(sfpdata));
+
+            if (get_valid_port_no(&port_no, port_no_str) == false)
+            {
+                continue;
+            }
+
+            if(port_no < 2)
+            {
+                // Only Ports 2 & 3 have SFPs on VSC8258EV, so skip the other ports.
+                printf("Only Ports 2 & 3 have SFP ports on VSC8258EV!\n\n");
+                continue;
+            }
+
+            // RXLOS, TX_FAULT, TXDIS, MODDET
+            mepa_gpio_in_get(appl_malibu_device[port_no], malibu_gpio_map[port_no].gpio_rx_los, &rxlos);
+            mepa_gpio_in_get(appl_malibu_device[port_no], malibu_gpio_map[port_no].gpio_tx_fault, &txfault);
+            mepa_gpio_in_get(appl_malibu_device[port_no], malibu_gpio_map[port_no].gpio_sfp_mod_det, &moddet);
+            mepa_gpio_in_get(appl_malibu_device[port_no], malibu_gpio_map[port_no].gpio_tx_dis, &txdis);
+
+            printf("Port %d SFP Status: \n", port_no);
+            printf("  SFP Inserted: %s\n", moddet? "No" : "Yes");
+
+            if(!moddet)
+            {
+                printf("  Signal Loss: %s\n", rxlos? "Yes" : "No");
+                printf("  TX Fault: %s\n", txfault? "Yes" : "No");
+                printf("  TX Disabled: %s\n", txdis? "Yes" : "No");
+
+                // Get Transceiver Info.
+                // Refer to SFF-8472 for info on how to decode the SFP EEPROM info!
+                // https://members.snia.org/document/dl/25916
+                appl_malibu_sfp_rom_get(port_no, &sfpdata[0], sizeof(sfpdata));
+
+                printf("\nTransceiver information:\n");
+                
+                snprintf(value_str, 17, "%s", &sfpdata[20]);
+                printf("  Vendor:        %s\n", value_str);
+                snprintf(value_str, 17, "%s", &sfpdata[40]);
+                printf("  Part Number:   %s\n", value_str);
+                snprintf(value_str, 17, "%s", &sfpdata[68]);
+                printf("  Serial Number: %s\n", value_str);
+                snprintf(value_str, 9, "%s", &sfpdata[84]);
+                printf("  Date Code:     %s\n", value_str);
+            }
+
+            printf("\n\n");
+                        
+            continue;
+        }
+        else if (strcmp(command, "sfp_txdis")  == 0)
+        {
+            if (get_valid_port_no(&port_no, port_no_str) == false)
+            {
+                continue;
+            }
+            
+            if(port_no < 2)
+            {
+                // Only Ports 2 & 3 have SFPs on VSC8258EV, so skip the other ports.
+                printf("Only Ports 2 & 3 have SFP ports on VSC8258EV!\n\n");
+                continue;
+            }
+
+            // Deassert TXDIS through GPIO:
+            if(mepa_gpio_out_set(appl_malibu_device[port_no], malibu_gpio_map[port_no].gpio_tx_dis, 1) != MEPA_RC_OK)
+            {
+                T_E("mepa_gpio_out_set() Port %d, error %d\n", port_no, rc);
+            }
+            else
+            {
+                printf("TX Disabled (GPIO%d) on SFP for Port %d!\n", malibu_gpio_map[port_no].gpio_tx_dis, port_no);
+            }
+                   
+            continue;
+        }
+        else if (strcmp(command, "sfp_txen")  == 0)
+        {
+            if (get_valid_port_no(&port_no, port_no_str) == false)
+            {
+                continue;
+            }
+
+            if(port_no < 2)
+            {
+                // Only Ports 2 & 3 have SFPs on VSC8258EV, so skip the other ports.
+                printf("Only Ports 2 & 3 have SFP ports on VSC8258EV!\n\n");
+                continue;
+            }
+
+            // Assert TXDIS through GPIO:
+            if(mepa_gpio_out_set(appl_malibu_device[port_no], malibu_gpio_map[port_no].gpio_tx_dis, 0) != MEPA_RC_OK)
+            {
+                T_E("mepa_gpio_out_set() Port %d, error %d\n", port_no, rc);
+            }
+            else
+            {
+                printf("TX Enabled (GPIO%d) on SFP for Port %d!\n", malibu_gpio_map[port_no].gpio_tx_dis, port_no);
+            }
+
+            continue;
+        }
     }
 
     return 0;
