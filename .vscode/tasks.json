@@ -23,7 +23,7 @@
             "command": "./build_app.sh",
             "args": [],
             "options": {
-                "cwd": "${workspaceFolder}/mepa-malibu10-rpi"
+                "cwd": "${workspaceFolder}/mepa-app-malibu10-rpi"
             },
             "problemMatcher": [
                 "$gcc"

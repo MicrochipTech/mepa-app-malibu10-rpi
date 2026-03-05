@@ -6,6 +6,7 @@
         "request": "launch",
         "program": "${workspaceFolder}/malibu_custom",
         "preLaunchTask": "Build before Debug",
+        // "preLaunchTask": "C: Build malibu_custom",
         "args": [],
         "stopAtEntry": false,
         "cwd": "${fileDirname}",
