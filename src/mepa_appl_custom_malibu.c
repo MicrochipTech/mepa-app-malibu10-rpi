@@ -53,10 +53,11 @@
 #define APPL_BASE_PORT          0       // Port 0 is used as the base port.
 
 #define PHY_MODE_10G_LAN        0
-#define PHY_MODE_1G_LAN         1
-#define PHY_MODE_10G_WAN        2
-#define PHY_MODE_10G_RPTR       3
-#define PHY_MODE_1G_RPTR        4
+#define PHY_MODE_1G_LAN_CL37    1
+#define PHY_MODE_1G_LAN         2
+#define PHY_MODE_10G_WAN        3
+#define PHY_MODE_10G_RPTR       4
+#define PHY_MODE_1G_RPTR        5
 
 // Macros for debug levels:
 // APPL_TRACE_LVL_NOISE
@@ -256,6 +257,47 @@ void appl_set_trace(void)
     MEPA_TRACE_FUNCTION = appl_mepa_tracer;
 }
 
+int appl_mepa_set_oper_mode(void)
+{
+    int phy_mode = 0;
+    char value_str[255] = {0};
+
+    printf("Configuring Operating MODE for ALL Ports; 0=MODE_10GLAN; 1=MODE_1GLAN_CL37; 2=MODE_1G_LAN; 3=MODE_10GWAN; 4=MODE_10GRPTR; 5=MODE_1GRPTR\n");
+    printf("Enter Oper_MODE (0/1/2/3/4/5): ");
+    memset(&value_str[0], 0, sizeof(value_str));
+    scanf("%s", &value_str[0]);
+    phy_mode = atoi(value_str);
+    printf("\n");
+
+    switch (phy_mode)
+    {
+        case PHY_MODE_10G_LAN:
+            printf ("Operating MODE for ALL Ports: 0=MODE_10GLAN\n");
+            break;
+        case PHY_MODE_1G_LAN_CL37:
+            printf ("Operating MODE for ALL Ports: 1=MODE_1GLAN_CL37\n");
+            break;
+        case PHY_MODE_1G_LAN:
+            printf ("Operating MODE for ALL Ports: 2=MODE_1GLAN\n");
+            break;
+        case PHY_MODE_10G_WAN:
+            printf ("Operating MODE for ALL Ports: 3=MODE_10GWAN\n");
+            break;
+        case PHY_MODE_10G_RPTR:
+            printf ("Operating MODE for ALL Ports: 4=MODE_10G_RPTR\n");
+            break;
+        case PHY_MODE_1G_RPTR:
+            printf ("Operating MODE for ALL Ports: 5=MODE_1G_RPTR\n");
+            break;
+        default:
+            printf ("Operating MODE ALL Ports INVALID, Setting 10G_LAN Mode \n");
+            phy_mode = 0;
+            break;
+    }
+
+    return phy_mode;
+}
+
 mepa_rc appl_mepa_reset_phy(mepa_port_no_t port_no)
 {
     mepa_reset_param_t rst_conf = {};
@@ -321,6 +363,13 @@ mepa_rc appl_mepa_status_get(mepa_port_no_t port_no)
     printf ("%-12s %-12s \n", "Block lock:", status_10g.block_lock ? "Yes" : "No");
     printf ("%-12s %-12s \n", "LOPC status:", status_10g.lopc_stat ? "Yes" : "No");
 
+    // Show CL37 status
+    if(oper_mode == MEPA_PHY_1G_MODE)
+    {
+        printf ("%-12s %-12s \n", "CL37 ANEG:", ((appl_malibu_conf.speed == MESA_SPEED_AUTO)) ? "Enabled" : "Disabled");
+    }
+    
+
     if (vtss_phy_10g_cnt_get(NULL, port_no, &cnt) != VTSS_RC_OK)
     {
         T_E("vtss_phy_10g_cnt_get failed, port %d", port_no);
@@ -364,13 +413,13 @@ mepa_rc appl_mepa_phy_init(mepa_port_no_t port_no, int phy_mode)
             appl_malibu_conf.conf_10g.l_media = MEPA_MEDIA_TYPE_SR2_SC;
             break;
 
-        case PHY_MODE_1G_LAN: /* 1=MODE_1GLAN */
+        case PHY_MODE_1G_LAN: /* 1=MODE_1GLAN_CL37; 2=MODE_1G_LAN */
+        case PHY_MODE_1G_LAN_CL37:
             appl_malibu_conf.conf_10g.oper_mode = MEPA_PHY_1G_MODE;
             
             // Use MESA_SPEED_1G to disable CL37 ANEG!
             // Use MESA_SPEED_AUTO to enable CL37 ANEG!
-            // appl_malibu_conf.speed = MESA_SPEED_1G;
-            appl_malibu_conf.speed = MESA_SPEED_AUTO;
+            appl_malibu_conf.speed = (phy_mode == PHY_MODE_1G_LAN)? MESA_SPEED_1G : MESA_SPEED_AUTO;
 
             // Always use these media settings for 1G LAN data rates
             // oper_mode.h_media = MEPA_MEDIA_TYPE_SR2_SC;
@@ -380,7 +429,7 @@ mepa_rc appl_mepa_phy_init(mepa_port_no_t port_no, int phy_mode)
 
             break;
 
-        case PHY_MODE_10G_WAN: /* 2=MODE_10GWAN */
+        case PHY_MODE_10G_WAN: /* 3=MODE_10GWAN */
             appl_malibu_conf.conf_10g.oper_mode = MEPA_PHY_WAN_MODE;
             appl_malibu_conf.speed = MESA_SPEED_10G;
 
@@ -391,7 +440,7 @@ mepa_rc appl_mepa_phy_init(mepa_port_no_t port_no, int phy_mode)
 
             break;
 
-        case PHY_MODE_10G_RPTR:   /* 0=MODE_10GRPTR */
+        case PHY_MODE_10G_RPTR:   /* 4=MODE_10GRPTR */
             appl_malibu_conf.conf_10g.oper_mode = MEPA_PHY_REPEATER_MODE;
             // oper_mode.rate = VTSS_RPTR_RATE_10_3125;     // No MEPA type for repeater mode rate as of 2025.12
             appl_malibu_conf.speed = MESA_SPEED_10G;
@@ -400,7 +449,7 @@ mepa_rc appl_mepa_phy_init(mepa_port_no_t port_no, int phy_mode)
             appl_malibu_conf.conf_10g.l_media = MEPA_MEDIA_TYPE_SR2_SC;
             break;
 
-        case PHY_MODE_1G_RPTR:   /* 0=MODE_1GRPTR */
+        case PHY_MODE_1G_RPTR:   /* 5=MODE_1GRPTR */
             // MJ Addition 2024-08-09. uncomment the two lines below when testing with a 1G Cu SFP
             appl_malibu_conf.conf_10g.oper_mode = MEPA_PHY_REPEATER_MODE;
             // oper_mode.rate = VTSS_RPTR_RATE_1_25;       // No MEPA type for repeater mode rate as of 2025.12
@@ -434,7 +483,7 @@ mepa_rc appl_mepa_phy_init(mepa_port_no_t port_no, int phy_mode)
     appl_malibu_conf.conf_10g.l_clk_src_is_high_amp = true;
 
     appl_malibu_conf.conf_10g.xfi_pol_invert = 1;
-    appl_malibu_conf.conf_10g.is_host_wan = false;
+    appl_malibu_conf.conf_10g.is_host_wan = (phy_mode == PHY_MODE_10G_WAN)? true : false;
     appl_malibu_conf.conf_10g.lref_for_host = false;
     appl_malibu_conf.conf_10g.channel_high_to_low = false;
 
