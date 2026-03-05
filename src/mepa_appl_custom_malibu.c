@@ -93,7 +93,7 @@ mepa_callout_t appl_rpi_spi =
 {
     .spi_read = rpi_spi_32bit_read,
     .spi_write = rpi_spi_32bit_write,
-    
+
     .mem_alloc = appl_mem_alloc,
     .mem_free = appl_mem_free,
 };
@@ -370,7 +370,7 @@ mepa_rc appl_mepa_status_get(mepa_port_no_t port_no)
     printf ("%-20s %-12d\n", "  Ber_cnt:", cnt.pcs.ber_cnt);
     printf ("%-20s %-12d\n", "  Err_blk_cnt:", cnt.pcs.err_blk_cnt);
     printf ("\n");
-    
+
     return rc;
 }
 
@@ -1144,7 +1144,7 @@ mepa_rc appl_malibu_loopback_conf(mepa_port_no_t port_no)
     /* ****************************************************** */
     /*                 Additional Features                    */
     /* ****************************************************** */ 
-    
+
     // GPIO Initialization
     // References:
     //      mesa/phy_demo_appl/appl/vtss_appl_10g_phy_malibu.c
