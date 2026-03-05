@@ -451,7 +451,7 @@ mepa_rc appl_mepa_phy_init(mepa_port_no_t port_no, int phy_mode)
 
             break;
 
-        case PHY_MODE_10G_RPTR:   /* 4=MODE_10GRPTR */
+        case PHY_MODE_10G_RPTR:   /* 4=MODE_10G_RPTR */
             appl_malibu_conf.conf_10g.oper_mode = MEPA_PHY_REPEATER_MODE;
             // oper_mode.rate = VTSS_RPTR_RATE_10_3125;     // No MEPA type for repeater mode rate as of 2025.12
             appl_malibu_conf.speed = MESA_SPEED_10G;
@@ -460,11 +460,17 @@ mepa_rc appl_mepa_phy_init(mepa_port_no_t port_no, int phy_mode)
             appl_malibu_conf.conf_10g.l_media = MEPA_MEDIA_TYPE_SR2_SC;
             break;
 
-        case PHY_MODE_1G_RPTR:   /* 5=MODE_1GRPTR */
-            // MJ Addition 2024-08-09. uncomment the two lines below when testing with a 1G Cu SFP
+        case PHY_MODE_1G_RPTR:   /* 5=MODE_1G_RPTR */
             appl_malibu_conf.conf_10g.oper_mode = MEPA_PHY_REPEATER_MODE;
             // oper_mode.rate = VTSS_RPTR_RATE_1_25;       // No MEPA type for repeater mode rate as of 2025.12
-            appl_malibu_conf.speed = MESA_SPEED_1G;
+            #if 1
+                // Note: due to lack of a vtss_rptr_rate_t struct member in the MEPA type phy10g_conf_t,
+                // we can't set the Repeater mode rate through MEPA.
+                // For now, notify the user!
+                printf("\nNOTE: It is currently not possible to set the Repeater Mode rate through MEPA.\n");
+                printf("Setting speed to MESA_SPEED_10G for now.\n");
+                appl_malibu_conf.speed = MESA_SPEED_10G;
+            #endif
 
             appl_malibu_conf.conf_10g.h_media = MEPA_MEDIA_TYPE_DAC;
             appl_malibu_conf.conf_10g.l_media = MEPA_MEDIA_TYPE_SR2_SC;
