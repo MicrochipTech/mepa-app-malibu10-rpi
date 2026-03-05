@@ -366,7 +366,11 @@ mepa_rc appl_mepa_phy_init(mepa_port_no_t port_no, int phy_mode)
 
         case PHY_MODE_1G_LAN: /* 1=MODE_1GLAN */
             appl_malibu_conf.conf_10g.oper_mode = MEPA_PHY_1G_MODE;
-            appl_malibu_conf.speed = MESA_SPEED_1G;
+            
+            // Use MESA_SPEED_1G to disable CL37 ANEG!
+            // Use MESA_SPEED_AUTO to enable CL37 ANEG!
+            // appl_malibu_conf.speed = MESA_SPEED_1G;
+            appl_malibu_conf.speed = MESA_SPEED_AUTO;
 
             // Always use these media settings for 1G LAN data rates
             // oper_mode.h_media = MEPA_MEDIA_TYPE_SR2_SC;
