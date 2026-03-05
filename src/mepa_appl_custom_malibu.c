@@ -118,29 +118,6 @@ char *portspeed2txt[] = {
     "Auto",
 };
 
-char *mediatype2txt[] = {
-    "MEPA_MEDIA_TYPE_SR",
-    "MEPA_MEDIA_TYPE_SR2",
-    "MEPA_MEDIA_TYPE_DAC",
-    "MEPA_MEDIA_TYPE_ZR",
-    "MEPA_MEDIA_TYPE_KR",
-    "MEPA_MEDIA_TYPE_SR_SC",
-    "MEPA_MEDIA_TYPE_SR2_SC",
-    "MEPA_MEDIA_TYPE_DAC_SC",
-    "MEPA_MEDIA_TYPE_ZR_SC",
-    "MEPA_MEDIA_TYPE_ZR2_SC",
-    "MEPA_MEDIA_TYPE_KR_SC",
-    "MEPA_MEDIA_TYPE_LR",
-    "MEPA_MEDIA_TYPE_ER",
-    "MEPA_MEDIA_TYPE_SFP28_25G_SR",
-    "MEPA_MEDIA_TYPE_SFP28_25G_LR",
-    "MEPA_MEDIA_TYPE_SFP28_25G_ER",
-    "MEPA_MEDIA_TYPE_SFP28_25G_DAC1M",
-    "MEPA_MEDIA_TYPE_SFP28_25G_DAC2M",
-    "MEPA_MEDIA_TYPE_1000BASE_T",
-    "MEPA_MEDIA_TYPE_NONE",
-};
-
 // Reference: mesa/meba/src/sparx5/meba.c
 typedef struct {
     vtss_gpio_10g_no_t gpio_tx_dis;      /* Tx Disable GPIO number */
@@ -1199,8 +1176,6 @@ mepa_rc appl_malibu_loopback_conf(mepa_port_no_t port_no)
             printf (" dump <port_no> - Dump detailed PHY, PHY_TS, MACsec, or ALL register groups for Port \n");
             printf (" ----------------------------------------  |  ------------------------------------------------------- \n");
             printf (" spird    <port_no> <dev> <addr>           |  spiwr       <port_no> <dev> <addr> <value> - Value MUST be in hex\n");
-            printf (" get_lmedia <port_no> - Get Line Media I/F |  set_lmedia  <port_no> - Set Line Media I/F for port \n");
-            printf (" get_hmedia <port_no> - Get Host Media I/F |  set_hmedia  <port_no> - Set Host Media I/F for port \n");
             printf (" ----------------------------------------  |  ------------------------------------------------------- \n");
             // printf (" 10g_kr   <port_no> - 10G Base KR          |  synce       <port_no> - Sync-E Config   \n");
             // printf (" prbs     <port_no> - PRBS                 |  obuf        <port_no> - Output Buf Control  \n");
@@ -1355,40 +1330,6 @@ mepa_rc appl_malibu_loopback_conf(mepa_port_no_t port_no)
             printf("\nWrote 0x%X to Register 0x%X:0x%04X\n\n", val32, dev, addr);
 
             continue;
-        }
-        else if (strcmp(command, "get_lmedia")  == 0)
-        {
-            if (get_valid_port_no(&port_no, port_no_str) == false)
-            {
-                continue;
-            }
-
-            rc = mepa_conf_get(appl_malibu_device[port_no], &appl_malibu_conf);
-            if (rc != MEPA_RC_OK)
-            {
-                T_E("%s: mepa_conf_get() error %d\n", __func__, rc);
-                return rc;
-            }
-
-            printf("Port %d Line Media type: %s\n", port_no, mediatype2txt[appl_malibu_conf.conf_10g.l_media]);
-            continue;
-        }
-        else if (strcmp(command, "get_hmedia")  == 0)
-        {
-            if (get_valid_port_no(&port_no, port_no_str) == false)
-            {
-                continue;
-            }
-
-            rc = mepa_conf_get(appl_malibu_device[port_no], &appl_malibu_conf);
-            if (rc != MEPA_RC_OK)
-            {
-                T_E("%s: mepa_conf_get() error %d\n", __func__, rc);
-                return rc;
-            }
-
-            printf("Port %d Host Media type: %s\n", port_no, mediatype2txt[appl_malibu_conf.conf_10g.h_media]);
-            continue;;
         }
         else if (strcmp(command, "vscope")  == 0)
         {
