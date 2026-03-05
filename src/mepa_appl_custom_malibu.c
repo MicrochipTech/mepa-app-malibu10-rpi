@@ -545,10 +545,10 @@ bool appl_malibu_vscope_cntrl(mepa_port_no_t port_no)
     // Refer to the Datasheet, Section 3.2.2
     // https://ww1.microchip.com/downloads/en/DeviceDoc/VMDS-10487.pdf
     mepa_conf_get(appl_malibu_device[port_no], &appl_malibu_conf);
-    phy10g_oper_mode_t oper_mode = appl_malibu_conf.conf_10g.oper_mode;
-    if( (oper_mode != MEPA_PHY_LAN_MODE) )
+    mepa_port_speed_t speed = appl_malibu_conf.speed;
+    if(speed != MESA_SPEED_10G)
     {
-        printf("\nNOTE: The VScope input signal monitoring integrated circuit feature is only available in the 10G operation mode.\n\n");
+        printf("\nNOTE: The VScope input signal monitoring integrated circuit feature is only available in the 10G operation mode.\n");
         return false;
     }
     
