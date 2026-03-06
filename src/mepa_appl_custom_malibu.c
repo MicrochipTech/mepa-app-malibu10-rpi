@@ -1075,86 +1075,103 @@ mepa_rc appl_malibu_loopback_conf(mepa_port_no_t port_no)
 // with minimal modifications, as MEPA does not appear to offer the APIs used below yet.
 bool appl_malibu_10g_base_kr_cntrl(mepa_port_no_t port_no)
 {
-    // Perform 10GBASE-KR on the HOST/LINE Interface
-    vtss_phy_10g_base_kr_train_aneg_t aneg = {};
-
-    printf("\nMalibu 10GBASE-KR AN/Tr configuration on Line side of Port %d \n", port_no);
-
-    aneg.line_kr = TRUE;
-    aneg.host_kr = FALSE;
-    aneg.training.enable = TRUE;
-    aneg.training.trmthd_c0 = 0;
-    aneg.training.trmthd_cm = 0;
-    aneg.training.trmthd_cp = 0;
-    aneg.training.ld_pre_init = 0;
-    aneg.autoneg.an_restart = TRUE;
-    aneg.autoneg.an_enable = TRUE;
-    aneg.autoneg.an_reset = FALSE;
-    aneg.ld_abil.adv_1g = 0;    // not supported!
-    aneg.ld_abil.adv_10g = 1;   // default option
-    aneg.ld_abil.fec_abil = 1;  // by default chosen by api
-    aneg.ld_abil.fec_req = 0;   // set FEC request, configurable yes or no (1 or 0)
-
-    // Enable line side 10GBASE-KR Auto-Neg and Training
-    if (vtss_phy_10g_base_kr_train_aneg_set(NULL, port_no, &aneg) != VTSS_RC_OK)
+    // Enable KR only on CH0 and CH1. However, this function may be modified
+    // to work on the other two ports.
+    if(port_no >= 2)
     {
-        T_E("vtss_phy_10g_base_kr_train_aneg_set, port %d\n", port_no);
-        printf("Malibu Error setting 10GBASE-KR AN/Tr configuration on Line side of Port %d \n", port_no);
-        return (FALSE);
+        printf("10g_kr command is only implemented for Ports 0 & 1...\n");
+        return false;
     }
 
-    // Enable host side 10GBASE-KR Auto-Neg and Training
-    // if (vtss_phy_10g_base_host_kr_train_aneg_set(NULL, port_no, &aneg) != VTSS_RC_OK)
-    // {
-    //     T_E("vtss_phy_10g_base_host_kr_train_aneg_set, port %d\n", port_no);
-    //     printf("Malibu Error setting 10GBASE-KR AN/Tr configuration on Host side of Port %d \n", port_no);
-    //     return FALSE;
-    // }
+    // Perform 10GBASE-KR on the HOST/LINE Interface
+    vtss_phy_10g_base_kr_train_aneg_t aneg = {};
+    int i = 0;
 
-    // Enable 10GBASE-KR AN/Tr of VSC825x on the line side of the selected port.
-    u8 loop_count = 0;
-    vtss_phy_10g_base_kr_status_t kr_status = {};
-
-    do
+    for(i = 0; i < 2; i++)
     {
-        if (vtss_phy_10g_kr_status_get(NULL, port_no, TRUE, &kr_status) != VTSS_RC_OK)
+        memset(&aneg, 0, sizeof(vtss_phy_10g_base_kr_train_aneg_t));
+        printf("\nMalibu 10GBASE-KR AN/Tr configuration on Line side of Port %d \n", i);
+
+        aneg.line_kr = TRUE;
+        aneg.host_kr = FALSE;
+        aneg.training.enable = TRUE;
+        aneg.training.trmthd_c0 = 0;
+        aneg.training.trmthd_cm = 0;
+        aneg.training.trmthd_cp = 0;
+        aneg.training.ld_pre_init = 0;
+        aneg.autoneg.an_restart = TRUE;
+        aneg.autoneg.an_enable = TRUE;
+        aneg.autoneg.an_reset = FALSE;
+        aneg.ld_abil.adv_1g = 0;    // not supported!
+        aneg.ld_abil.adv_10g = 1;   // default option
+        aneg.ld_abil.fec_abil = 1;  // by default chosen by api
+        aneg.ld_abil.fec_req = 0;   // set FEC request, configurable yes or no (1 or 0)
+
+        // Enable line side 10GBASE-KR Auto-Neg and Training
+        if (vtss_phy_10g_base_kr_train_aneg_set(NULL, i, &aneg) != VTSS_RC_OK)
         {
-            T_E("vtss_phy_10g_base_kr_status_get, port %d\n", port_no);
-            printf("Malibu Error getting 10GBASE-KR AN/Tr configuration on Line side of Port %d \n", port_no);
+            T_E("vtss_phy_10g_base_kr_train_aneg_set, port %d\n", i);
+            printf("Malibu Error setting 10GBASE-KR AN/Tr configuration on Line side of Port %d \n", i);
+            return (FALSE);
         }
 
-        printf("loop_count = %d\n", loop_count);
-        printf("aneg complete - %s \n", kr_status.aneg.complete ? "TRUE" : "FALSE");
-        printf("training complete - %s \n", kr_status.train.complete ? "TRUE" : "FALSE");
+        // Enable host side 10GBASE-KR Auto-Neg and Training
+        // if (vtss_phy_10g_base_host_kr_train_aneg_set(NULL, i, &aneg) != VTSS_RC_OK)
+        // {
+        //     T_E("vtss_phy_10g_base_host_kr_train_aneg_set, port %d\n", i);
+        //     printf("Malibu Error setting 10GBASE-KR AN/Tr configuration on Host side of Port %d \n", i);
+        //     return FALSE;
+        // }
+    }
 
-        unsigned int msec = 500;
-        struct timespec ts;
-        ts.tv_sec = msec / 1000;
-        ts.tv_nsec = (msec % 1000) * 1000000;
-        while(nanosleep(&ts, &ts) == -1 && errno == EINTR);
+    // Enable 10GBASE-KR AN/Tr between port 0 and port 1 of VSC825x on the line side
+    for(i = 0; i < 2; i++)
+    {
+        u8 loop_count = 0;
+        vtss_phy_10g_base_kr_status_t kr_status = {};
 
-        loop_count++;
-    } while ((!kr_status.aneg.complete || !kr_status.train.complete) && (loop_count < 10) );
+        do
+        {
+            if (vtss_phy_10g_kr_status_get(NULL, i, TRUE, &kr_status) != VTSS_RC_OK)
+            {
+                T_E("vtss_phy_10g_base_kr_status_get, port %d\n", i);
+                printf("Malibu Error getting 10GBASE-KR AN/Tr configuration on Line side of Port %d \n", i);
+            }
 
-    printf("KR training and aneg status on port %u HOST\n", port_no);
+            printf("loop_count = %d\n", loop_count);
+            printf("aneg complete - %s \n", kr_status.aneg.complete ? "TRUE" : "FALSE");
+            printf("training complete - %s \n", kr_status.train.complete ? "TRUE" : "FALSE");
 
-    printf(" aneg complete - %s \n", kr_status.aneg.complete ? "TRUE" : "FALSE");
-    printf(" aneg active - %s \n", kr_status.aneg.active ? "TRUE" : "FALSE");
-    printf(" aneg lp request_10g - %s \n", kr_status.aneg.request_10g ? "TRUE" : "FALSE");
-    printf(" aneg lp request_1g - %s \n", kr_status.aneg.request_1g ? "TRUE" : "FALSE");
-    printf(" aneg request_fec_change - %s \n", kr_status.aneg.request_fec_change ? "TRUE" : "FALSE");
-    printf(" aneg fec_enable - %s \n", kr_status.aneg.fec_enable ? "TRUE" : "FALSE");
-    printf(" aneg sm - %u \n", kr_status.aneg.sm );
-    printf(" aneg lp_aneg_able - %s \n", kr_status.aneg.lp_aneg_able ? "TRUE" : "FALSE");
-    printf(" pcs block_lock - %s \n", kr_status.aneg.block_lock ? "TRUE" : "FALSE");
-    printf(" training complete - %s \n", kr_status.train.complete ? "TRUE" : "FALSE");
-    printf(" training cm_ob_tap_result - %d \n", (kr_status.train.cm_ob_tap_result==0) ? 0:(kr_status.train.cm_ob_tap_result-128) );
-    printf(" training cp_ob_tap_result - %d \n", (kr_status.train.cp_ob_tap_result==0) ? 0:(kr_status.train.cp_ob_tap_result-128) );
-    printf(" training c0_ob_tap_result - %d \n", kr_status.train.c0_ob_tap_result );
+            unsigned int msec = 500;
+            struct timespec ts;
+            ts.tv_sec = msec / 1000;
+            ts.tv_nsec = (msec % 1000) * 1000000;
+            while(nanosleep(&ts, &ts) == -1 && errno == EINTR);
 
-    printf(" fec enable - %s \n", kr_status.fec.enable ? "TRUE" : "FALSE");
-    printf(" fec corrected_block_cnt - %u \n", kr_status.fec.corrected_block_cnt);
-    printf(" fec uncorrected_block_cnt - %u \n", kr_status.fec.uncorrected_block_cnt);
+            loop_count++;
+        } while ((!kr_status.aneg.complete || !kr_status.train.complete) && (loop_count < 10) );
+
+        printf("KR training and aneg status on port %u HOST\n", i);
+
+        printf(" aneg complete - %s \n", kr_status.aneg.complete ? "TRUE" : "FALSE");
+        printf(" aneg active - %s \n", kr_status.aneg.active ? "TRUE" : "FALSE");
+        printf(" aneg lp request_10g - %s \n", kr_status.aneg.request_10g ? "TRUE" : "FALSE");
+        printf(" aneg lp request_1g - %s \n", kr_status.aneg.request_1g ? "TRUE" : "FALSE");
+        printf(" aneg request_fec_change - %s \n", kr_status.aneg.request_fec_change ? "TRUE" : "FALSE");
+        printf(" aneg fec_enable - %s \n", kr_status.aneg.fec_enable ? "TRUE" : "FALSE");
+        printf(" aneg sm - %u \n", kr_status.aneg.sm );
+        printf(" aneg lp_aneg_able - %s \n", kr_status.aneg.lp_aneg_able ? "TRUE" : "FALSE");
+        printf(" pcs block_lock - %s \n", kr_status.aneg.block_lock ? "TRUE" : "FALSE");
+        printf(" training complete - %s \n", kr_status.train.complete ? "TRUE" : "FALSE");
+        printf(" training cm_ob_tap_result - %d \n", (kr_status.train.cm_ob_tap_result==0) ? 0:(kr_status.train.cm_ob_tap_result-128) );
+        printf(" training cp_ob_tap_result - %d \n", (kr_status.train.cp_ob_tap_result==0) ? 0:(kr_status.train.cp_ob_tap_result-128) );
+        printf(" training c0_ob_tap_result - %d \n", kr_status.train.c0_ob_tap_result );
+
+        printf(" fec enable - %s \n", kr_status.fec.enable ? "TRUE" : "FALSE");
+        printf(" fec corrected_block_cnt - %u \n", kr_status.fec.corrected_block_cnt);
+        printf(" fec uncorrected_block_cnt - %u \n", kr_status.fec.uncorrected_block_cnt);
+    }
+    
 
     return true;
 }
@@ -1919,7 +1936,7 @@ bool appl_malibu_synce_cntrl(mepa_port_no_t   port_no)
                 continue;
             }
 
-            printf ("Port %d", port_no);
+            printf ("Port %d\n", port_no);
             appl_malibu_10g_base_kr_cntrl(port_no);
 
             continue;
