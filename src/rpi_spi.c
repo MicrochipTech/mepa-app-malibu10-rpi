@@ -92,7 +92,7 @@ void spi_write(uint8_t *data, unsigned int len)
 	struct spi_ioc_transfer xfer[SPI_MSG_SIZE] = {0};
 
 	/* Fill buffer */
-	xfer[0].tx_buf = data;
+	xfer[0].tx_buf = (uintptr_t) data;
 	xfer[0].len = len;
 	xfer[0].speed_hz = speed;
 	xfer[0].bits_per_word = bits;
@@ -111,7 +111,7 @@ void spi_read(uint8_t *data, unsigned int len)
 	struct spi_ioc_transfer xfer[SPI_MSG_SIZE] = {0};
 
 	/* Fill buffer */
-	xfer[0].rx_buf = data;
+	xfer[0].rx_buf = (uintptr_t) data;
 	xfer[0].len = len;
 	xfer[0].speed_hz = speed;
 	xfer[0].bits_per_word = bits;
@@ -194,18 +194,14 @@ mepa_rc rpi_spi_32bit_write(
 
     errno = 0;
 
-    // NOTE: May need to check if MEBA is needed. However,
-    // keep in mind MEPA does not seem to be meant to dereference this...
-    // mepa_port_no_t port_no = ctx->port_no;
-
     // Initialize the spi buffer
     memset(rpi_spi_buffer, 0, sizeof(rpi_spi_buffer));
+    
     // See Table 64 of VSC8258 Datasheet. Each command contains up to 7 bytes from my understanding.
-
     //sprintf(rpi_spi_buffer, "spiwr %x %x %x %x\n", port_no, mmd, addr, *value);
     //printf("\r\nIn %s: spiwr %x %x %x %x\r\n", __func__, port_no, mmd, addr, *value);
 
-    //MJ Addition: Create the SPI frame. Assemption: This is only a single SPI Read as decribed in Figure 101 and Table 64 of the VSC8258 Datasheet
+    // MJ Addition: Create the SPI frame. Assemption: This is only a single SPI Read as decribed in Figure 101 and Table 64 of the VSC8258 Datasheet
     // Assumptions: mmd is "Device Number", addr is "Register Number", port_no is "Port/Channel Number"
     // NOTE: spidev sends data in array index 0 first.
     rpi_spi_buffer[0] = (uint8_t)(0x80 + (port_no << 5) + mmd);
@@ -251,10 +247,6 @@ mepa_rc rpi_spi_32bit_read(
     int i;
 
     errno = 0;
-
-    // NOTE: May need to check if MEBA is needed. However,
-    // keep in mind MEPA does not seem to be meant to dereference this...
-    // mepa_port_no_t port_no = ctx->port_no;
 
     // Initialize the spi buffer
     memset(rpi_spi_buffer, 0, sizeof(rpi_spi_buffer));
@@ -322,30 +314,6 @@ mepa_rc rpi_spi_32bit_read(
     T_N("Check3: 0x%x\r\n", *value);
     
     return MEPA_RC_OK;
-}
-
-mepa_rc rpi_spi_16bit_write(
-            struct mepa_callout_ctx *ctx,
-            //mepa_port_no_t port_no,
-            uint8_t             mmd,
-            uint16_t            addr,
-            uint16_t            value)
-{
-    return rpi_spi_32bit_write(ctx, ctx->port_no, mmd, addr, (uint32_t)value);
-}
-
-mepa_rc rpi_spi_16bit_read(
-                struct mepa_callout_ctx *ctx,
-                //mepa_port_no_t port_no,
-                uint8_t             mmd,
-                uint16_t            addr,
-                uint16_t            *value)
-{
-    uint32_t *temp_value = value;
-    mepa_rc rc = rpi_spi_32bit_read(ctx, ctx->port_no, mmd, addr, temp_value);
-    *temp_value = (*temp_value & 0xFFFF);
-    *value = (uint16_t) (*temp_value);
-    return rc;
 }
 
 mepa_rc rpi_spi_32bit_read_rbt_test(
