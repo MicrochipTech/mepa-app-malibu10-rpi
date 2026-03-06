@@ -367,10 +367,20 @@ mepa_rc appl_mepa_status_get(mepa_port_no_t port_no)
     {
         printf ("%-12s %-12s \n", "CL37 ANEG:", ((appl_malibu_conf.speed == MESA_SPEED_AUTO)) ? "Enabled" : "Disabled");
     }
-    // Show repeater speed
+
+    // Show repeater speed!
+    // NOTE: Since no Repeater Rate attrib is available in phy10g_conf_t as of SW-MEPA 2025.12,
+    // we'll use VTSS API calls.
+    vtss_phy_10g_mode_t phy_oper_mode = {};
+    rc = vtss_phy_10g_mode_get(NULL, port_no, &phy_oper_mode);  // Note: vtss_rc is similar to mepa_rc
+    if (rc != MEPA_RC_OK)
+    {
+        T_E("%s: vtss_phy_10g_mode_get() error %d", __func__, rc);
+        return rc;
+    }
     if(oper_mode == MEPA_PHY_REPEATER_MODE)
     {
-        printf ("%-12s %-12s \n", "PHY Speed:", ((appl_malibu_conf.speed == MESA_SPEED_10G)) ? "10G" : "1G");
+        printf ("%-12s %-12s \n", "Repeater Rate:", ((phy_oper_mode.rate == VTSS_RPTR_RATE_10_3125)) ? "10.3125 Gbps" : "1.25 Gbps");
     }
 
     if (vtss_phy_10g_cnt_get(NULL, port_no, &cnt) != VTSS_RC_OK)
@@ -457,10 +467,8 @@ mepa_rc appl_mepa_phy_init(mepa_port_no_t port_no, int phy_mode)
             // oper_mode.rate = VTSS_RPTR_RATE_1_25;       // No MEPA type for repeater mode rate as of 2025.12
             #if 1
                 // Note: due to lack of a vtss_rptr_rate_t struct member in the MEPA type phy10g_conf_t,
-                // we can't set the Repeater mode rate through MEPA.
-                // For now, notify the user!
-                printf("\nNOTE: It is currently not possible to set the Repeater Mode rate through MEPA.\n");
-                printf("Setting speed to MESA_SPEED_10G for now.\n");
+                // we can't set the Repeater mode rate through MEPA. We'll use VTSS APIs instead. See below.
+                // Also note we set MESA_SPEED_10G so that mepa_conf_set/phy_10g_conf_set() does not override the oper_mode
                 appl_malibu_conf.speed = MESA_SPEED_10G;
             #endif
 
@@ -503,6 +511,36 @@ mepa_rc appl_mepa_phy_init(mepa_port_no_t port_no, int phy_mode)
         return rc;
     }
 
+    // NOTE: For repeater modes, we also need to set the repeater rate.
+    // Currently, due to lack of a vtss_rptr_rate_t struct member in the MEPA type phy10g_conf_t,
+    // we can't set the Repeater mode rate through MEPA. (as of SW-MEPA 2025.12)
+    // So, we will resort to using the VTSS APIs directly for now.
+    if((phy_mode == PHY_MODE_10G_RPTR) || (phy_mode == PHY_MODE_1G_RPTR))
+    {
+        vtss_phy_10g_mode_t phy_oper_mode = {};
+
+        printf("\nNOTE: It is currently not possible to set the Repeater Mode rate through MEPA.\n");
+        printf("Thus, VTSS APIs will be used to set the repeater rate.\n");
+
+        rc = vtss_phy_10g_mode_get(NULL, port_no, &phy_oper_mode);  // Note: vtss_rc is similar to mepa_rc
+        if (rc != MEPA_RC_OK)
+        {
+            T_E("%s: vtss_phy_10g_mode_get() error %d", __func__, rc);
+            return rc;
+        }
+
+        phy_oper_mode.oper_mode = VTSS_PHY_REPEATER_MODE;
+        phy_oper_mode.rate = (phy_mode==PHY_MODE_10G_RPTR)? VTSS_RPTR_RATE_10_3125 : VTSS_RPTR_RATE_1_25;
+        printf("Setting PHY Repeater mode Rate to %s\n", (phy_oper_mode.rate == VTSS_RPTR_RATE_10_3125) ? "10.3125 Gbps" : "1.25 Gbps");
+
+        rc = vtss_phy_10g_mode_set(NULL, port_no, &phy_oper_mode);  // Note: vtss_rc is similar to mepa_rc
+        if (rc != MEPA_RC_OK)
+        {
+            T_E("%s: vtss_phy_10g_mode_set() error %d", __func__, rc);
+            return rc;
+        }
+    }
+    
     return rc;
 }
 
