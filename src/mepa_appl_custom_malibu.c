@@ -1060,9 +1060,10 @@ mepa_rc appl_malibu_loopback_conf(mepa_port_no_t port_no)
     T_W("Warning at %d\r\n", __LINE__);
     T_I("Info at %d\r\n", __LINE__);
 
-    printf ("//Default Setup Assumptions: \n" );
-    printf ("//Board has Power Applied prior to Demo start \n" );
-    printf ("//Pwr Supply/Voltages Stable, Ref Clk Stable, Ref & PLL Stable \n\n" );
+    printf ("// Default Setup Assumptions: \n" );
+    printf ("// Board has Power Applied prior to Demo start \n" );
+    printf ("// PHY was reset through RESETN prior to Demo start \n" );
+    printf ("// Pwr Supply/Voltages Stable, Ref Clk Stable, Ref & PLL Stable \n\n" );
 
     /* ****************************************************** */
     /*                       BOARD SETUP                      */
@@ -1123,9 +1124,17 @@ mepa_rc appl_malibu_loopback_conf(mepa_port_no_t port_no)
     /*                       SPI IO Test                      */
     /* ****************************************************** */
     // Run SPI IO Test after mepa_create()
-    printf("appl_malibu_spi_io_test()\r\n");
-    appl_malibu_spi_io_test(&appl_rpi_spi, appl_callout_ctx, APPL_PORT_COUNT);
-    printf("\n");
+    printf("========================================================================\n");
+    printf("Running SPI IO Test\n\n");
+    rc = appl_malibu_spi_io_test(&appl_rpi_spi, appl_callout_ctx, APPL_PORT_COUNT);
+    if(rc != MEPA_RC_OK)
+    {
+        T_E("Error encountered during SPI IO Test! Double-check SPI connections!\n");
+        T_E("Aborting application...\n\n");
+        return -1;
+    }
+    printf("\nSPI IO Test Done.\n");
+    printf("========================================================================\n\n");
     
     /* ****************************************************** */
     /*                       PHY Bring-up                     */

@@ -9,7 +9,7 @@
 #include "microchip/ethernet/board/api.h"
 
 // SPI IO Test - ref: vtss_appl_10g_phy_malibu.c
-void appl_malibu_spi_io_test(mepa_callout_t *callout, mepa_callout_ctx_t *callout_ctx, int port_count);
+mepa_rc appl_malibu_spi_io_test(mepa_callout_t *callout, mepa_callout_ctx_t *callout_ctx, int port_count);
 
 
 #endif /*_IO_TEST_H*/
