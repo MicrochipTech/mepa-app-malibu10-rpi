@@ -302,6 +302,14 @@ mepa_rc appl_mepa_status_get(mepa_port_no_t port_no)
     // So, we call vtss_phy_10g_status_get() directly below to get these statuses.
     vtss_phy_10g_status_t status_10g = {};
     vtss_phy_10g_cnt_t cnt = {};
+
+    rc = mepa_conf_get(appl_malibu_device[port_no], &appl_malibu_conf);
+    if (rc != MEPA_RC_OK)
+    {
+        T_E("%s: mepa_conf_get() error %d\n", __func__, rc);
+        return rc;
+    }
+
     phy10g_oper_mode_t oper_mode = appl_malibu_conf.conf_10g.oper_mode;
 
     // Note: vtss_phy_10g_status_get() expects a vtss_inst_t struct to be passed to it.
