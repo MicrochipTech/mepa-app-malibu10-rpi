@@ -1159,6 +1159,187 @@ bool appl_malibu_10g_base_kr_cntrl(mepa_port_no_t port_no)
     return true;
 }
 
+/* ********************************************************** */
+/* ********************************************************** */
+/* ******    SYNC-E                       ******************* */
+/* ********************************************************** */
+// SYNC-E: SREFCLK function to configure the input SyncE clock
+//
+// srefclk_enable:
+// --> TRUE (to configure SREFCLK input macro),
+// --> FALSE (to disable SREFCLK input macro)
+//
+// srefclk_freq:
+// --> VTSS_PHY_10G_SREFCLK_156_25 (156.25MHz)
+// --> VTSS_PHY_10G_SREFCLK_125_00 (125.00MHz)
+// --> VTSS_PHY_10G_SREFCLK_155_52 (155.52MHz)
+//
+// Note:
+// Users must add a call to the "lane sync" function after calling the SREFCLK function.
+// The following 10G Tx Macros are available as destination for synchronization to SREFCLK:
+// --> Line Ch0/Ch1/Ch2/Ch3,
+// --> Host Ch0/Ch1/Ch2/Ch3 or
+// --> SCKOUT
+
+// Note: Function below taken from mesa/phy_demo_appl/appl/vtss_appl_10g_phy_malibu.c.
+bool appl_malibu_synce_cntrl(mepa_port_no_t   port_no)
+{
+    if(port_no != APPL_BASE_PORT)
+    {
+        printf("\nComman only works with port_no %d.\n", APPL_BASE_PORT);
+        return true;
+    }
+// NOTE: Original code from vtss_appl_10g_phy_malibu.c is excluded from the build below,
+// since it appears MEPA has an implementation for SyncE for Malibu10 - phy_10g_synce_clk_conf_set(), which links to mepa_synce_clock_conf_set().
+#if 1
+    if(port_no == APPL_BASE_PORT)
+    {
+        // SREFCLK Configuration:
+        mepa_synce_clock_conf_t conf = {0};
+        printf("SREFCLK configuration... \n");
+        printf("Lane Sync configuration --> Rx (Source): SREFCLK, Tx (Destination): Line Ch0 \n");
+
+        conf.freq = MEPA_FREQ_156_25M;
+        conf.src = MEPA_SYNCE_CLOCK_SRC_SREFCLK;
+        printf("Done!\n");
+
+
+    }
+#endif
+#if 0
+    if (port_no == APPL_BASE_PORT)
+    {
+        vtss_phy_10g_srefclk_mode_t     srefclk;
+
+        memset(&srefclk, 0, sizeof(vtss_phy_10g_srefclk_mode_t));
+
+        printf("SREFCLK configuration: \n");
+        if (vtss_phy_10g_srefclk_conf_get(NULL, port_no, &srefclk) != VTSS_RC_OK)
+        {
+            T_E("vtss_phy_10g_srefclk_conf_get, port %d\n", port_no);
+            printf("%% Error getting SREFCLK configuration for port %d \n", port_no);
+        }
+
+        srefclk.enable = TRUE;
+        srefclk.freq = VTSS_PHY_10G_SREFCLK_156_25;
+
+        if (vtss_phy_10g_srefclk_conf_set(NULL, port_no, &srefclk) != VTSS_RC_OK)
+        {
+            T_E("vtss_phy_10g_srefclk_conf_set, port %d\n", port_no);
+            printf("Malibu Error getting SREFCLK configuration for port %d \n", port_no);
+        }
+
+        printf("Done!\n");
+
+        // Lane Sync: To synchronize a Tx macro to an Rx source.
+        // This code syncs Ch3 10G Line Tx macro to SREFCLK
+        vtss_phy_10g_lane_sync_conf_t lane_sync;
+
+        memset(&lane_sync, 0, sizeof(vtss_phy_10g_lane_sync_conf_t));
+
+        printf("Lane Sync configuration --> Rx (Source): SREFCLK, Tx (Destination): Line Ch0 \n");
+        lane_sync.enable = TRUE;
+        lane_sync.rx_macro = VTSS_PHY_10G_RX_MACRO_SREFCLK;
+        lane_sync.tx_macro = VTSS_PHY_10G_TX_MACRO_LINE;
+        lane_sync.rx_ch = 0;
+        lane_sync.tx_ch = 0;
+
+        if (vtss_phy_10g_lane_sync_set(NULL, port_no, &lane_sync) != VTSS_RC_OK)
+        {
+            T_E("vtss_phy_10g_lane_sync_set, port %d\n", port_no);
+            printf("Malibu Error setting lane sync configuration for port %d \n", port_no);
+        }
+        printf("Done!\n\n");
+    }
+
+    // SYNC-E: SCKOUT function to configure the input SyncE clock
+    //
+    // sckout_enable:
+    // --> TRUE (to configure SCKOUT input macro),
+    // --> FALSE (to disable SCKOUT input macro)
+    //
+    // sckout_freq:
+    // --> VTSS_PHY_10G_SCKOUT_156_25 (156.25MHz)
+    // --> VTSS_PHY_10G_SCKOUT_125_00 (125.00MHz)
+    //
+    //
+    // Note:
+    // Users must add a call to the "lane sync" function after calling the SCKOUT function.
+    // The following 10G Rx Macros are available as destination for synchronization to SCKOUT:
+    // --> Line Ch0/Ch1/Ch2/Ch3,
+    // --> Host Ch0/Ch1/Ch2/Ch3 or
+    // --> SREFCLK
+
+    if (port_no == APPL_BASE_PORT)
+    {
+        vtss_phy_10g_sckout_conf_t sckout;
+
+        memset(&sckout, 0, sizeof(vtss_phy_10g_sckout_conf_t));
+
+        printf("SCKOUT configuration: \n");
+        sckout.mode = VTSS_PHY_10G_SYNC_DISABLE;
+        sckout.src = VTSS_CKOUT_NO_SQUELCH;
+        sckout.freq = VTSS_PHY_10G_SCKOUT_156_25;
+        sckout.squelch_inv = FALSE;
+        sckout.enable = TRUE;
+
+        if(vtss_phy_10g_sckout_conf_set(NULL, port_no, &sckout) != VTSS_RC_OK)
+        {
+            T_E("vtss_phy_10g_sckout_set, port %d", port_no);
+            printf("Malibu Error setting SCKOUT configuration \n");
+        }
+        printf("Done!\n");
+
+        // Lane Sync: To synchronize a Tx macro to an Rx source.
+        // This code synchronizes SCKOUT to SREFCLK
+        vtss_phy_10g_lane_sync_conf_t lane_sync;
+
+        memset(&lane_sync, 0, sizeof(vtss_phy_10g_lane_sync_conf_t));
+
+        printf("Lane Sync configuration --> Rx (Source): SREFCLK, Tx (Destination): SCKOUT \n");
+        lane_sync.enable = TRUE;
+        lane_sync.rx_macro = VTSS_PHY_10G_RX_MACRO_SREFCLK;
+        lane_sync.tx_macro = VTSS_PHY_10G_TX_MACRO_SCKOUT;
+        lane_sync.rx_ch = 0;
+        lane_sync.tx_ch = 0;
+
+        if (vtss_phy_10g_lane_sync_set(NULL, port_no, &lane_sync) != VTSS_RC_OK)
+        {
+            T_E("vtss_phy_10g_lane_sync_set, port %d", port_no);
+            printf("Malibu Error setting lane sync configuration for port %d \n", port_no);
+        }
+        printf("Done!\n\n");
+    }
+
+    // SYNC-E: CKOUT function to configure the input SyncE clock
+    //
+    // Note:
+    // 1) At 10G LAN data rate, Line/Host Tx/Rx clock is 161.1328125MHz +/- ppm delta (10.3125G/64)
+    // 2) At 10G WAN data rate, Line/Host Tx/Rx clock is 155.52MHz +/- ppm delta (9.95328G/64)
+    // 3) At 1G LAN data rate, Line/Host Tx/Rx clock is 62.5MHz +/- ppm delta (1.25G/20)
+
+    if (port_no == APPL_BASE_PORT)
+    {
+        vtss_phy_10g_ckout_conf_t ckout;
+
+        memset(&ckout, 0, sizeof(vtss_phy_10g_ckout_conf_t));
+
+        ckout.mode = VTSS_CKOUT_LINE0_RECVRD_CLOCK;
+        ckout.src = VTSS_CKOUT_NO_SQUELCH;
+        ckout.freq = VTSS_PHY_10G_CLK_DIVIDE_BY_2;
+        ckout.squelch_inv = FALSE;
+        ckout.ckout_sel = CKOUT0;
+        ckout.enable = TRUE;
+
+        if(vtss_phy_10g_ckout_conf_set(NULL, port_no, &ckout) != VTSS_RC_OK)
+        {
+            T_E("vtss_phy_10g_ckout_set, port %d", port_no);
+            printf("Malibu Error setting CKOUT configuration for port %d \n", port_no);
+        }
+    }
+#endif
+}
+
 // *****************************************************************************
 // *****************************************************************************
 // Section: Main Entry Point
@@ -1344,8 +1525,9 @@ bool appl_malibu_10g_base_kr_cntrl(mepa_port_no_t port_no)
             // printf (" macsec   <port_no> - MACSEC Block config  |  1588        <port_no> - 1588 Block Config   \n");
             printf (" dbgdump  <port_no> - Simple PHY Reg Dump  |                                                \n");
             printf (" ----------------------------------------  |  ------------------------------------------------------- \n");
-            printf (" sfpdump  <port_no> <i2c_addr> - SFP Dump  |  sfp_status <port_no> - Basic SFP Status Info\n");
-            printf (" sfp_txdis <port_no> - Disable TX on SFP   |  sfp_txen <port_no>   - Enable TX on SFP\n");
+            printf (" sfpdump   <port_no> <i2c_addr> - SFP Dump |  sfp_status  <port_no> - Basic SFP Status Info\n");
+            printf (" sfp_txdis <port_no> - Disable TX on SFP   |  sfp_txen    <port_no>   - Enable TX on SFP\n");
+            // printf ("                                           |  warmstart   <port_no> Execute Warm-Start Sequence \n");
 
             printf ("\n exit - Exit Program \n");
             printf (" \n");
@@ -1739,6 +1921,18 @@ bool appl_malibu_10g_base_kr_cntrl(mepa_port_no_t port_no)
 
             printf ("Port %d", port_no);
             appl_malibu_10g_base_kr_cntrl(port_no);
+
+            continue;
+
+        }
+        else if (strcmp(command, "synce")  == 0)
+        {
+            if (get_valid_port_no(&port_no, port_no_str) == FALSE) {
+                continue;
+            }
+
+            printf ("Port %d", port_no);
+            // appl_malibu_synce_cntrl(port_no);
 
             continue;
 
