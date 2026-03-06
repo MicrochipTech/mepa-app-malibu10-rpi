@@ -818,6 +818,8 @@ mepa_rc appl_malibu_gpio_conf(mepa_port_no_t port_no)
         return rc;
     }
 
+    printf("Malibu Testing I2C Access to SFP+ Ports\n");
+
     for (address = 0; address < 16; address++)
     {
         if(mepa_i2c_read(appl_malibu_device[port_no], 0, address, 0, 0, 0, &data) != MEPA_RC_OK)
@@ -827,7 +829,7 @@ mepa_rc appl_malibu_gpio_conf(mepa_port_no_t port_no)
         } 
         else
         {
-	        printf("Malibu reading I2C register @ addr = %d: value = 0x%X \n", address, data);
+	        printf("   Malibu reading I2C register @ addr = %d: value = 0x%X \n", address, data);
         }
     }
 
@@ -839,14 +841,18 @@ mepa_rc appl_malibu_gpio_conf(mepa_port_no_t port_no)
     } 
     else
     {
-        printf("Malibu reading I2C register @ addr = 0x%X: value = 0x%X \n", address, data);
+        printf("   Malibu reading I2C register @ addr = 0x%X: value = 0x%X \n", address, data);
     }
 
-    data = 0xAB;
+    data = 0x55;
     if (mepa_i2c_write(appl_malibu_device[port_no], 0, address, 0, 0, 0, &data) != MEPA_RC_OK)
     {
         T_E("mepa_i2c_write, port %d, gpio %d, address = 0x%X, data = 0x%X\n", port_no, gmap->gpio_i2c_clk, address, data);
         printf("Malibu Error writing I2C register on SFP+ module for port %d, gpio %d \n", port_no, gmap->gpio_i2c_clk);
+    }
+    else
+    {
+        printf("   Malibu writing I2C register @ addr = 0x%X: value = 0x%X \n", address, data);
     }
 
     if (mepa_i2c_read(appl_malibu_device[port_no], 0, address, 0, 0, 0, &data) != MEPA_RC_OK)
@@ -856,7 +862,7 @@ mepa_rc appl_malibu_gpio_conf(mepa_port_no_t port_no)
     }
     else
     {
-        printf("Malibu reading I2C register @ addr = 0x%X: value = 0x%X \n", address, data);
+        printf("   Malibu reading I2C register @ addr = 0x%X: value = 0x%X \n", address, data);
     }
 
     /* ********************************************************** */
