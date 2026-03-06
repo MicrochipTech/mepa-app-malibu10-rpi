@@ -239,7 +239,14 @@ int appl_mepa_set_oper_mode(void)
     int phy_mode = 0;
     char value_str[255] = {0};
 
-    printf("Configuring Operating MODE for PHY Ports; 0=MODE_10GLAN; 1=MODE_1GLAN_CL37; 2=MODE_1G_LAN; 3=MODE_10GWAN; 4=MODE_10GRPTR; 5=MODE_1GRPTR\n");
+    printf("Configuring Operating MODE for PHY Ports:\n");
+    printf("   %d = MODE_10G_LAN\n", PHY_MODE_10G_LAN);
+    printf("   %d = MODE_1G_LAN_CL37\n", PHY_MODE_1G_LAN_CL37);
+    printf("   %d = MODE_1G_LAN\n", PHY_MODE_1G_LAN);
+    printf("   %d = MODE_10G_WAN\n", PHY_MODE_10G_WAN);
+    printf("   %d = MODE_10G_RPTR\n", PHY_MODE_10G_RPTR);
+    printf("   %d = MODE_1G_RPTR\n", PHY_MODE_1G_RPTR);
+
     printf("Enter Oper_MODE (0/1/2/3/4/5): ");
     memset(&value_str[0], 0, sizeof(value_str));
     scanf("%s", &value_str[0]);
@@ -249,25 +256,25 @@ int appl_mepa_set_oper_mode(void)
     switch (phy_mode)
     {
         case PHY_MODE_10G_LAN:
-            printf ("Operating MODE for ALL Ports: 0=MODE_10GLAN\n");
+            printf ("Operating MODE: %d = MODE_10G_LAN\n", phy_mode);
             break;
         case PHY_MODE_1G_LAN_CL37:
-            printf ("Operating MODE for ALL Ports: 1=MODE_1GLAN_CL37\n");
+            printf ("Operating MODE: %d = MODE_1G_LAN_CL37\n", phy_mode);
             break;
         case PHY_MODE_1G_LAN:
-            printf ("Operating MODE for ALL Ports: 2=MODE_1GLAN\n");
+            printf ("Operating MODE: %d = MODE_1G_LAN\n", phy_mode);
             break;
         case PHY_MODE_10G_WAN:
-            printf ("Operating MODE for ALL Ports: 3=MODE_10GWAN\n");
+            printf ("Operating MODE: %d = MODE_10G_WAN\n", phy_mode);
             break;
         case PHY_MODE_10G_RPTR:
-            printf ("Operating MODE for ALL Ports: 4=MODE_10G_RPTR\n");
+            printf ("Operating MODE: %d = MODE_10G_RPTR\n", phy_mode);
             break;
         case PHY_MODE_1G_RPTR:
-            printf ("Operating MODE for ALL Ports: 5=MODE_1G_RPTR\n");
+            printf ("Operating MODE: %d = MODE_1G_RPTR\n", phy_mode);
             break;
         default:
-            printf ("Operating MODE ALL Ports INVALID, Setting 10G_LAN Mode \n");
+            printf ("Operating MODE INVALID, Setting 10G_LAN Mode \n");
             phy_mode = 0;
             break;
     }
@@ -349,10 +356,10 @@ mepa_rc appl_mepa_status_get(mepa_port_no_t port_no)
     printf ("%-12s %-12s \n", "LOPC status:", status_10g.lopc_stat ? "Yes" : "No");
 
     // Print current operating mode!
-    printf ("%-12s %-12s \n", "PHY OpMode:", (oper_mode == MEPA_PHY_LAN_MODE) ? "MEPA_PHY_LAN_MODE" : 
-                                               (oper_mode == MEPA_PHY_1G_MODE)  ?  "MEPA_PHY_1G_MODE" :
-                                               (oper_mode == MEPA_PHY_WAN_MODE)  ?  "MEPA_PHY_WAN_MODE" :
-                                               (oper_mode == MEPA_PHY_REPEATER_MODE)  ?  "MEPA_PHY_REPEATER_MODE" :
+    printf ("%-12s %-12s \n", "PHY OpMode:", (oper_mode == MEPA_PHY_LAN_MODE) ? "10G LAN Mode" : 
+                                               (oper_mode == MEPA_PHY_1G_MODE)  ?  "1G Mode" :
+                                               (oper_mode == MEPA_PHY_WAN_MODE)  ?  "10G WAN Mode" :
+                                               (oper_mode == MEPA_PHY_REPEATER_MODE)  ?  "Repeater Mode" :
                                                "Undefined!");
 
     // Show CL37 status
@@ -1151,6 +1158,9 @@ mepa_rc appl_malibu_loopback_conf(mepa_port_no_t port_no)
         printf("appl_mepa_reset_phy: rc: %d\n\n", rc);
     }
 
+    // Wait for PHY to stabilize - around 1s
+    usleep(1000000);
+
     // Set the PHY Configuration for each port.
     // Reference: mesa/phy_demo_appl/appl/vtss_appl_10g_phy_malibu.c > 1st for loop of main()
     // Also, refer to board-configs/src/sparx5/meba.c > malibu_init()
@@ -1160,10 +1170,7 @@ mepa_rc appl_malibu_loopback_conf(mepa_port_no_t port_no)
         rc = appl_mepa_phy_init(i, phy_mode);
         printf("appl_mepa_phy_init: rc: %d\n\n", rc);
     }
-
-    // Wait for PHY to stabilize - around 1s
-    usleep(1000000);
-
+    
     /* ****************************************************** */
     /*                 Additional Features                    */
     /* ****************************************************** */ 
