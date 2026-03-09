@@ -166,7 +166,7 @@ Note that commands may be added in the future based on future releases of the AP
 
 ### Additional Information
 For more information on how to build other projects, you may opt to follow the KB Article below: <br>
-https://microchipsupport.force.com/s/article/First-Steps-in-Creating-a-MEPA-Application
+https://support.microchip.com/s/article/First-Steps-in-Creating-a-MEPA-Application
 
 #### Changing the Trace Level
 MEPA can display logs based on the trace level. For this project, the trace level is defined at compile time, and may be changed by modifying the 'MACROS' variable in `build_app.sh`:
