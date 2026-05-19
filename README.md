@@ -207,13 +207,4 @@ Running the `malibu_io_test` application should show the same prompt as above, w
 
 Since `malibu_io_test` has its own shell script, you can also change the trace level inside `build_io_test.sh`, similar to the previous section.
 
-## History:
-
-
-| Date        | Description     | Modified By:            |
-| ----------- | --------------- | ----------------------- |
-| 02-Oct-2024 | Initial release | mjneri |
-| 13-Jan-2026 | Update code after <br> testing with SW-MEPA 2025.06 |mjneri|
-| 02-Mar-2026 | Update code/README to build with <br> SW-MEPA 2025.12 |mjneri|
-| 06-Mar-2026 | Overhaul of the demo application, <br> tested with SW-MEPA 2025.12 |mjneri|
-
+----
