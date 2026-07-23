@@ -7,3 +7,8 @@ CMakeFiles/
 board-configs/
 malibu_custom
 malibu_io_test
+meba/
+mesa/
+mesa-ag/
+cmake_target_db.txt
+utils/

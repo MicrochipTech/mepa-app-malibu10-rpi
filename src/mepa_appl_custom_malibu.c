@@ -851,13 +851,12 @@ mepa_rc appl_malibu_gpio_conf(mepa_port_no_t port_no)
     // MEPA has I2C functions for Malibu PHYs, so we will use them instead of vtss_phy_10g_i2c_read/write().
     // Also, keep in mind the following comment from vtss.c:
     // ------------------------
-    /* In 10G Malibu PHY's the arguments i2c_dev_addr and word_access of API i2c_read/write have no functionality,
+    /* In 10G Malibu PHYs the argument word_access of API i2c_read/write have no functionality,
     * so the value for these arguments can be given as zero
     */
-    // ------------------------
-    // The 'cnt' argument is also not used, so we can just pass '0'
     u16 address = 0x0;
     u8 data;
+    u8 sfp_dev_addr = 0x50;
 
     // Skip I2C access for ports 0 and 1 (which don't connect to SFP+ ports on VSC8258EV)
     if(port_no < 2)
@@ -865,11 +864,12 @@ mepa_rc appl_malibu_gpio_conf(mepa_port_no_t port_no)
         return rc;
     }
 
+    // Read one byte at a time... note that 'cnt' arg can be used to specify how many bytes to read.
     printf("Malibu Testing I2C Access to SFP+ Ports\n");
 
     for (address = 0; address < 16; address++)
     {
-        if(mepa_i2c_read(appl_malibu_device[port_no], 0, address, 0, 0, 0, &data) != MEPA_RC_OK)
+        if(mepa_i2c_read(appl_malibu_device[port_no], 0, address, sfp_dev_addr, 0, 1, &data) != MEPA_RC_OK)
         {
 	        T_E("mepa_i2c_read, port %d, gpio %d, address = 0x%X\n", port_no, gmap->gpio_i2c_clk, address);
 	        printf("Malibu Error reading I2C register on SFP+ module for port %d, gpio %d \n", port_no, gmap->gpio_i2c_clk);
@@ -881,7 +881,7 @@ mepa_rc appl_malibu_gpio_conf(mepa_port_no_t port_no)
     }
 
     address = 0x3E;
-    if (mepa_i2c_read(appl_malibu_device[port_no], 0, address, 0, 0, 0, &data) != MEPA_RC_OK)
+    if (mepa_i2c_read(appl_malibu_device[port_no], 0, address, sfp_dev_addr, 0, 1, &data) != MEPA_RC_OK)
     {
         T_E("mepa_i2c_read, port %d, gpio %d, address = 0x%X\n", port_no, gmap->gpio_i2c_clk, address);
         printf("Malibu Error reading I2C register on SFP+ module for port %d, gpio %d \n", port_no, gmap->gpio_i2c_clk);
@@ -892,7 +892,7 @@ mepa_rc appl_malibu_gpio_conf(mepa_port_no_t port_no)
     }
 
     data = 0x55;
-    if (mepa_i2c_write(appl_malibu_device[port_no], 0, address, 0, 0, 0, &data) != MEPA_RC_OK)
+    if (mepa_i2c_write(appl_malibu_device[port_no], 0, address, sfp_dev_addr, 0, 1, &data) != MEPA_RC_OK)
     {
         T_E("mepa_i2c_write, port %d, gpio %d, address = 0x%X, data = 0x%X\n", port_no, gmap->gpio_i2c_clk, address, data);
         printf("Malibu Error writing I2C register on SFP+ module for port %d, gpio %d \n", port_no, gmap->gpio_i2c_clk);
@@ -902,7 +902,7 @@ mepa_rc appl_malibu_gpio_conf(mepa_port_no_t port_no)
         printf("   Malibu writing I2C register @ addr = 0x%X: value = 0x%X \n", address, data);
     }
 
-    if (mepa_i2c_read(appl_malibu_device[port_no], 0, address, 0, 0, 0, &data) != MEPA_RC_OK)
+    if (mepa_i2c_read(appl_malibu_device[port_no], 0, address, sfp_dev_addr, 0, 1, &data) != MEPA_RC_OK)
     {
         T_E("mepa_i2c_read, port %d, gpio %d, address = 0x%X\n", port_no, gmap->gpio_i2c_clk, address);
         printf("Malibu Error reading I2C register on SFP+ module for port %d, gpio %d \n", port_no, gmap->gpio_i2c_clk);
@@ -917,17 +917,23 @@ mepa_rc appl_malibu_gpio_conf(mepa_port_no_t port_no)
     return rc;
 }
 
-void appl_malibu_sfp_rom_get(mepa_port_no_t port_no, uint8_t *data, unsigned int len)
+void appl_malibu_sfp_rom_get(mepa_port_no_t port_no, uint8_t *data, unsigned int len, uint8_t sfp_dev_addr)
 {
     int i = 0, j = 0;
 
-    for (i = 0; i < len; i++)
+    // Note: as of MESA 2026.06, 'cnt' is now used by malibu_10g_i2c_write/read functions,
+    // however it is defined as a u8 type only, so for typical SFP dumps (~256 bytes),
+    // 'cnt' cannot be 256. See workaround below.
+    if (len > 255)
     {
-        if (mepa_i2c_read(appl_malibu_device[port_no], 0, i, 0, 0, 0, &data[i]) != MEPA_RC_OK)
-        {
-            T_E("mepa_i2c_read, port %d\n", port_no);
-            printf("Malibu Error reading I2C register on SFP+ module for port %d\n", port_no);
-        }
+        // Assume len is always 256 for now... we cap it at 255:
+        len = 255;
+    }
+
+    if (mepa_i2c_read(appl_malibu_device[port_no], 0, 0, sfp_dev_addr, 0, len, data) != MEPA_RC_OK)
+    {
+        T_E("mepa_i2c_read, port %d\n", port_no);
+        printf("Malibu Error reading I2C register on SFP+ module for port %d\n", port_no);
     }
 
     return;
@@ -1203,7 +1209,7 @@ bool appl_malibu_synce_cntrl(mepa_port_no_t   port_no)
 {
     if(port_no != APPL_BASE_PORT)
     {
-        printf("\nComman only works with port_no %d.\n", APPL_BASE_PORT);
+        printf("\nCommand only works with port_no %d.\n", APPL_BASE_PORT);
         return true;
     }
 // NOTE: Original code from vtss_appl_10g_phy_malibu.c is excluded from the build below,
@@ -1751,18 +1757,8 @@ bool appl_malibu_synce_cntrl(mepa_port_no_t   port_no)
             scanf("%s", &value_str[0]);
             i2c_addr = strtol(value_str, NULL, 16);
 
-            // Read 0x1C:0x0000 (SLAVE_ID Register) first to get the current I2C Slave address value
-            appl_spi_read_write(&appl_rpi_spi, &appl_callout_ctx[port_no], 0x01, 0xC000, &val32, false);
-            
-            // Then write the i2c_addr...
-            appl_spi_read_write(&appl_rpi_spi, &appl_callout_ctx[port_no], 0x01, 0xC000, &i2c_addr, true);
-            
-            // Read back value to be sure...
-            appl_spi_read_write(&appl_rpi_spi, &appl_callout_ctx[port_no], 0x01, 0xC000, &val32, false);
-            printf("\r\n0x01:0xC000 new value: 0x%X\r\n\r\n", val32);
-
             // Now read through the SFP registers...
-            appl_malibu_sfp_rom_get(port_no, &sfpdata[0], sizeof(sfpdata));
+            appl_malibu_sfp_rom_get(port_no, &sfpdata[0], sizeof(sfpdata), i2c_addr);
 
             // Print the SFP Dump!
             printf("Dumping SFP Address 0x%X\n", i2c_addr);
@@ -1780,10 +1776,6 @@ bool appl_malibu_synce_cntrl(mepa_port_no_t   port_no)
                 }
                 printf("\r\n");
             }
-
-            // Write back the default i2c_addr for 0x01:0xC000
-            i2c_addr = 0x50;
-            appl_spi_read_write(&appl_rpi_spi, &appl_callout_ctx[port_no], 0x01, 0xC000, &i2c_addr, true);
 
             continue;
         }
@@ -1823,7 +1815,7 @@ bool appl_malibu_synce_cntrl(mepa_port_no_t   port_no)
                 // Get Transceiver Info.
                 // Refer to SFF-8472 for info on how to decode the SFP EEPROM info!
                 // https://members.snia.org/document/dl/25916
-                appl_malibu_sfp_rom_get(port_no, &sfpdata[0], sizeof(sfpdata));
+                appl_malibu_sfp_rom_get(port_no, &sfpdata[0], sizeof(sfpdata), 0x50);
 
                 printf("\nTransceiver information:\n");
                 

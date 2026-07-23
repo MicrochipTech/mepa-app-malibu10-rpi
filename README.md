@@ -20,13 +20,17 @@ The project was tested on the following boards:
 For the setup, please refer to **Step 4** in the following KB Article: <br>
 https://support.microchip.com/s/article/VSC8258EV---Run-the-phy-demo-appl-Example-on-a-Raspberry-Pi
 
-Hardware connections are shown below (applies to both Raspberry Pi 4B and Raspberry Pi 5. May also work on Raspberry Pi CM4):
+Hardware connections are shown below (applies to Raspberry Pi 4B, Raspberry Pi 5, and Raspberry Pi CM4 mounted on the CM4 IO Board):
 <img src="images/setup.jpg"/>
 
 ## Software Used:
-The project has been tested with <span style="color: red;">**SW-MEPA v2025.12**.</span>
+The project has been tested with <span style="color: red;">**MESA v2026.06**.</span>
 
-SW-MEPA can be downloaded from GitHub in the link below:<br>
+MESA can be downloaded from GitHub in the link below:<br>
+https://github.com/microchip-ung/mesa
+
+**NOTE**: MEPA has been integrated into MESA starting with the **2026.06** release.<br>
+For older versions (2024.09 to 2026.03), refer to the standalone MEPA release:<br>
 https://github.com/microchip-ung/sw-mepa
 
 ## Build and Run the Code:
@@ -37,39 +41,31 @@ To build and run the project on a Raspberry Pi running Pi OS, please refer to th
 ### Steps
 1. Ensure `spidev` is enabled through `sudo raspi-config` -> `Interface Options` -> `SPI`. You may need to reboot your RPi afterwards. <br>
 To double-check, use `ls /dev | grep spi`
-2. Install the dependencies for SW-MEPA.
+2. Install the dependencies for MESA.
 ```
 $ sudo apt-get install cmake cmake-curses-gui build-essential ruby ruby-parslet libjson-c-dev -y
 ```
-3. Clone v2025.12 of SW-MEPA and v2025.09 of MESA (which this version of SW-MEPA was tested on...)
+3. Clone v2026.06 of MESA:
 ```
-$ git clone https://github.com/microchip-ung/sw-mepa --branch=v2025.12 --depth=1 mepa_v2025.12
-$ cd mepa_v2025.12
-
-// Check MESA version dependency using:
-$ cat .cmake/deps-mesa.json
-
-// Clone MESA 2025.09
-$ git clone https://github.com/microchip-ung/mesa --branch=v2025.09 --depth=1 sw-mesa
-$ cd ../
+$ git clone https://github.com/microchip-ung/mesa --branch=v2026.06 --depth=1 mesa_v2026.06
 ```
 
-4. Create a folder where this project will reside, and copy the source code into it. <br>(**NOTE**: you might need to download/clone this repo into your PC first, before copying it manually to your RPi (if your RPi is not connected to the Internet). Otherwise, just 'git clone' the repo directly.)
+4. Assuming the Raspberry Pi has internet access, clone the Git repository.
+(*Otherwise, create a folder where this project will reside, and manually copy the source code into it.*)
 ```
-$ mkdir mepa-app-malibu10-rpi
-// Copy source code into mepa-app-malibu10-rpi/
+$ git clone https://github.com/MicrochipTech/mepa-app-malibu10-rpi
 
 $ ls
-mepa-app-malibu10-rpi  mepa_v2025.12
+mepa-app-malibu10-rpi  mesa_v2026.06
 ```
 
 5. `cd` into the `mepa-app-malibu10-rpi` folder and run the following `CMake` command. Then, run make to build the libraries.
 ```
 $ cd mepa-app-malibu10-rpi
-$ cmake --fresh ../mepa_v2025.12 -DMEPA_vtss=ON -DMEPA_vtss_opt_10g=ON -DBUILD_MEPA_DEMO=OFF -DMEPA_vtss_opt_1g=ON -DMEPA_vtss_opt_ts=ON -DCMAKE_C_FLAGS="${CMAKE_C_FLAGS} -DLMU_PP_USE___VA_OPT__=1"
+$ cmake --fresh ../mesa_v2026.06 -DMEPA_vtss=ON -DMEPA_vtss_opt_10g=ON -DBUILD_MESA_DEMO=OFF -DMEPA_vtss_opt_1g=ON -DMEPA_vtss_opt_ts=ON -DCMAKE_C_FLAGS="${CMAKE_C_FLAGS} -DLMU_PP_USE___VA_OPT__=1"
 $ make -j${nproc}
 ```
-Note: There were changes in MESA v2025.06 onwards that could result in some build errors related to the GCC version used. Adding the last C Flag above helps get around these errors.
+Note: There were changes in MESA v2025.06 onwards that could result in some build errors related to the GCC version used. Adding the last C Flag above can help get around these errors.
 
 6. Double-check to ensure the libraries have been built:
 ```
