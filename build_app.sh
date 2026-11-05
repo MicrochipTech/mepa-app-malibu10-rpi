@@ -18,9 +18,9 @@ ERRORCHECK="-W -Werror -Wall"
 WARNINGCHECK="-Wno-error=implicit-function-declaration -Wno-error=int-conversion -Wno-error=incompatible-pointer-types"
 STATICLIBS="mepa/libmepa.a mepa/libmepa_common.a mepa/vtss/libmepa_drv_vtss_custom.a"
 MACROS="-DAPPL_TRACE_LVL_ERROR"
+LIBGPIOD="-lgpiod"
 
-
-COMPILECOMMAND="gcc $INCLUDES $SOURCES $DEBUGBUILD $WARNINGCHECK $STATICLIBS $MACROS -o malibu_custom"
+COMPILECOMMAND="gcc $INCLUDES $SOURCES $DEBUGBUILD $WARNINGCHECK $STATICLIBS $MACROS $LIBGPIOD -o malibu_custom"
 echo $COMPILECOMMAND
 echo ""
 $COMPILECOMMAND

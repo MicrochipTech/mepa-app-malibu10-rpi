@@ -15,13 +15,21 @@ This project is provided for testing and evaluation of the VSC8258EV and may als
 The project was tested on the following boards:
 
 - VSC8258EV
-- Raspberry Pi 5
+- Raspberry Pi 5 running Pi OS Bookworm (Debian 12)
 
 For the setup, please refer to **Step 4** in the following KB Article: <br>
 https://support.microchip.com/s/article/VSC8258EV---Run-the-phy-demo-appl-Example-on-a-Raspberry-Pi
 
 Hardware connections are shown below (applies to Raspberry Pi 4B, Raspberry Pi 5, and Raspberry Pi CM4 mounted on the CM4 IO Board):
 <img src="images/setup.jpg"/>
+
+**For Raspberry Pi 5:**<br>
+In addition to the connections above, you can also connect GPIO25 of the Raspberry Pi to the RSTB pin of the VSC8258EV J48 header. This will allow the Raspberry Pi to reset the PHY during initialization through GPIO control.
+<br>
+
+> This was tested on a Raspberry Pi 5 running Debian 12 (Bookworm), which uses libgpiod v1.6.3. On later Pi OS versions (e.g., Debian 13 (Trixie)), libgpiod v2.x and later are used, which removed support for gpiod_ctxless_set_value().
+> 
+> If you're using a different Pi or Pi OS version, the application will still work, but you may need to remove the GPIO-related code. Note that you will manually need to reset the PHY in this scenario.
 
 ## Software Used:
 The project has been tested with <span style="color: red;">**MESA v2026.06**.</span>
@@ -45,6 +53,11 @@ To double-check, use `ls /dev | grep spi`
 ```
 $ sudo apt-get install cmake cmake-curses-gui build-essential ruby ruby-parslet libjson-c-dev -y
 ```
+If you are using a Raspberry Pi 5 (running Pi OS Bookworm/Debian 12), then you may also need to install the libgpiod library.
+```
+$ sudo apt-get install libgpiod-dev -y
+```
+
 3. Clone v2026.06 of MESA:
 ```
 $ git clone https://github.com/microchip-ung/mesa --branch=v2026.06 --depth=1 mesa_v2026.06
@@ -62,7 +75,7 @@ mepa-app-malibu10-rpi  mesa_v2026.06
 5. `cd` into the `mepa-app-malibu10-rpi` folder and run the following `CMake` command. Then, run make to build the libraries.
 ```
 $ cd mepa-app-malibu10-rpi
-$ cmake --fresh ../mesa_v2026.06 -DMEPA_vtss=ON -DMEPA_vtss_opt_10g=ON -DBUILD_MESA_DEMO=OFF -DMEPA_vtss_opt_1g=ON -DMEPA_vtss_opt_ts=ON -DCMAKE_C_FLAGS="${CMAKE_C_FLAGS} -DLMU_PP_USE___VA_OPT__=1"
+$ cmake --fresh ../mesa_v2026.06 -DMEPA_vtss=ON -DMEPA_vtss_opt_10g=ON -DBUILD_MESA_DEMO=OFF -DMEPA_vtss_opt_1g=ON -DMEPA_vtss_opt_ts=ON -DMEPA_vtss_opt_macsec=ON -DCMAKE_C_FLAGS="${CMAKE_C_FLAGS} -DLMU_PP_USE___VA_OPT__=1"
 $ make -j${nproc}
 ```
 Note: There were changes in MESA v2025.06 onwards that could result in some build errors related to the GCC version used. Adding the last C Flag above can help get around these errors.

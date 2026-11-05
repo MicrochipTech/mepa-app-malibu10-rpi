@@ -23,6 +23,11 @@
                 "description": "Set Disassembly Flavor to Intel",
                 "text": "-gdb-set disassembly-flavor intel",
                 "ignoreFailures": true
+            },
+            {
+                "description": "Enable hex format for GDB",
+                "text": "set output-radix 16",
+                "ignoreFailures": true
             }
         ]
     }

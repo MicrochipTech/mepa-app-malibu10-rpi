@@ -35,6 +35,7 @@
 #include <ctype.h>      // For isprint(), used in "sfpdump" command
 #include <errno.h>
 #include <time.h>
+#include <gpiod.h>      // For control of the VSC8258EV RST
 
 // MEPA includes
 #include "microchip/ethernet/phy/api.h"
@@ -335,26 +336,48 @@ mepa_rc appl_mepa_status_get(mepa_port_no_t port_no)
     // Print status
     // Ref: vtss_appl_malibu_status_get() in vtss_appl_10g_phy_malibu.c
     printf("Port %d %-6s %-12s %-16s %-12s %-12s\n", port_no, "", "Link", "Link-down-event", "Rx-Fault-Sticky", "Tx-Fault-Sticky");
-    printf ("Port %u:\n", port_no);
     printf ("--------\n");
+    
+    // Line/Host PMA Status
     printf ("%-12s %-12s %-16s %-12s %-12s\n", "Line PMA:", status_10g.pma.rx_link?"Yes":"No",
               status_10g.pma.link_down ? "Yes" : "No", status_10g.pma.rx_fault ? "Yes" : "No", status_10g.pma.tx_fault ? "Yes" : "No");
     printf ("%-12s %-12s %-16s %-12s %-12s\n", "Host PMA:", status_10g.hpma.rx_link?"Yes":"No",
             status_10g.hpma.link_down ? "Yes" : "No", status_10g.hpma.rx_fault ? "Yes" : "No", status_10g.hpma.tx_fault ? "Yes" : "No");
-    printf ("%-12s %-12s %-16s %-12s %-12s\n", "WIS:", oper_mode == VTSS_PHY_WAN_MODE ? status_10g.wis.rx_link ? "Yes" : "No" : "-",
-            oper_mode == VTSS_PHY_WAN_MODE ? status_10g.wis.link_down ? "Yes" : "No" : "-",
-            oper_mode == VTSS_PHY_WAN_MODE ? status_10g.wis.rx_fault ? "Yes" : "No" : "-",
-            oper_mode == VTSS_PHY_WAN_MODE ? status_10g.wis.tx_fault ? "Yes" : "No" : "-");
-    printf ("%-12s %-12s %-16s %-12s %-12s\n", "Line PCS:", status_10g.pcs.rx_link ? "Yes" : "No",
-            status_10g.pcs.link_down ? "Yes" : "No", status_10g.pcs.rx_fault ? "Yes" : "No", status_10g.pcs.tx_fault ? "Yes" : "No");
-    printf ("%-12s %-12s %-16s %-12s %-12s\n", "Host PCS:", status_10g.hpcs.rx_link ? "Yes" : "No",
-            status_10g.hpcs.link_down ? "Yes" : "No", status_10g.hpcs.rx_fault ? "Yes" : "No", status_10g.hpcs.tx_fault ? "Yes" : "No");
-    printf ("%-12s %-12s %-16s %-12s %-12s\n", "XAUI Status:", status_10g.xs.rx_link ? "Yes" : "No",
-            status_10g.xs.link_down ? "Yes" : "No", status_10g.xs.rx_fault ? "Yes" : "No", status_10g.xs.tx_fault ? "Yes" : "No");
-    printf ("%-12s %-12s \n", "Line 1G PCS:", status_10g.lpcs_1g ? "Yes" : "No");
-    printf ("%-12s %-12s \n", "Host 1G PCS:", status_10g.hpcs_1g ? "Yes" : "No");
+    
+    // WAN Interface Sublayer status
+    if(oper_mode == MEPA_PHY_WAN_MODE)
+    {
+        printf ("%-12s %-12s %-16s %-12s %-12s\n", "WIS:", oper_mode == VTSS_PHY_WAN_MODE ? status_10g.wis.rx_link ? "Yes" : "No" : "-",
+                oper_mode == VTSS_PHY_WAN_MODE ? status_10g.wis.link_down ? "Yes" : "No" : "-",
+                oper_mode == VTSS_PHY_WAN_MODE ? status_10g.wis.rx_fault ? "Yes" : "No" : "-",
+                oper_mode == VTSS_PHY_WAN_MODE ? status_10g.wis.tx_fault ? "Yes" : "No" : "-");
+    }
+        
+    // 10G Lne/Host PCS Status
+    if(oper_mode == MEPA_PHY_LAN_MODE)
+    {
+        printf ("%-12s %-12s %-16s %-12s %-12s\n", "Line PCS:", status_10g.pcs.rx_link ? "Yes" : "No",
+                status_10g.pcs.link_down ? "Yes" : "No", status_10g.pcs.rx_fault ? "Yes" : "No", status_10g.pcs.tx_fault ? "Yes" : "No");
+        printf ("%-12s %-12s %-16s %-12s %-12s\n", "Host PCS:", status_10g.hpcs.rx_link ? "Yes" : "No",
+                status_10g.hpcs.link_down ? "Yes" : "No", status_10g.hpcs.rx_fault ? "Yes" : "No", status_10g.hpcs.tx_fault ? "Yes" : "No");
+    }
+    
+    // 1G Line/Host PCS Status
+    if(oper_mode == MEPA_PHY_1G_MODE)
+    {
+        printf ("%-12s %-12s \n", "Line 1G PCS:", status_10g.lpcs_1g ? "Yes" : "No");
+        printf ("%-12s %-12s \n", "Host 1G PCS:", status_10g.hpcs_1g ? "Yes" : "No");
+    }
+
+    // Other Link statuses
     printf ("%-12s %-12s \n", "Link UP:", status_10g.status ? "Yes" : "No");
-    printf ("%-12s %-12s \n", "Block lock:", status_10g.block_lock ? "Yes" : "No");
+
+    // Block lock is based on Eth_10GBASE-R PCS Status 2 register (0x03:0x0021), so we show it only for 10G.
+    if(oper_mode == MEPA_PHY_LAN_MODE)
+    {
+        printf ("%-12s %-12s \n", "Block lock:", status_10g.block_lock ? "Yes" : "No");
+    }
+
     printf ("%-12s %-12s \n", "LOPC status:", status_10g.lopc_stat ? "Yes" : "No");
 
     // Print current operating mode!
@@ -365,9 +388,17 @@ mepa_rc appl_mepa_status_get(mepa_port_no_t port_no)
                                                "Undefined!");
 
     // Show CL37 status
+    vtss_phy_10g_clause_37_control_t cl37_ctrl;
+    memset(&cl37_ctrl, 0 , sizeof(vtss_phy_10g_clause_37_control_t));
+    cl37_ctrl.line = true;
+    if (vtss_phy_10g_clause_37_control_get(NULL, port_no, &cl37_ctrl) != MEPA_RC_OK)
+    {
+        return MEPA_RC_ERROR;
+    }
+
     if(oper_mode == MEPA_PHY_1G_MODE)
     {
-        printf ("%-12s %-12s \n", "CL37 ANEG:", ((appl_malibu_conf.speed == MESA_SPEED_AUTO)) ? "Enabled" : "Disabled");
+        printf ("%-12s %-12s \n", "CL37 ANEG:", ((cl37_ctrl.enable)) ? "Enabled" : "Disabled");
     }
 
     // Show repeater speed!
@@ -391,11 +422,61 @@ mepa_rc appl_mepa_status_get(mepa_port_no_t port_no)
         return MEPA_RC_ERROR;
     }
     printf ("\n");
-    printf ("PCS counters:\n");
-    printf ("%-20s %-12s\n", "  Block_latched:", cnt.pcs.block_lock_latched ? "Yes" : "No");
-    printf ("%-20s %-12s\n", "  High_ber_latched:", cnt.pcs.high_ber_latched ? "Yes" : "No");
-    printf ("%-20s %-12d\n", "  Ber_cnt:", cnt.pcs.ber_cnt);
-    printf ("%-20s %-12d\n", "  Err_blk_cnt:", cnt.pcs.err_blk_cnt);
+    if(oper_mode == MEPA_PHY_LAN_MODE)
+    {
+        printf ("PCS counters:\n");
+        printf ("%-20s %-12s\n", "  Block_latched:", cnt.pcs.block_lock_latched ? "Yes" : "No");
+        printf ("%-20s %-12s\n", "  High_ber_latched:", cnt.pcs.high_ber_latched ? "Yes" : "No");
+        printf ("%-20s %-12d\n", "  Ber_cnt:", cnt.pcs.ber_cnt);
+        printf ("%-20s %-12d\n", "  Err_blk_cnt:", cnt.pcs.err_blk_cnt);
+    }
+    
+    // Check MAC statistics (ref: phy_demo_appl/appl/vtss_appl_macsec_demo.c)
+    vtss_macsec_mac_counters_t     cntrs;
+    memset(&cntrs, 0, sizeof(vtss_macsec_mac_counters_t));
+    vtss_macsec_hmac_counters_get(NULL, port_no, &cntrs, false);
+
+    printf("\n HOST MAC RX COUNTERS: Port_no: %d\n", port_no);
+    printf("   if_rx_octets:         %llu \n", (long long unsigned int)cntrs.if_rx_octets);
+    printf("   if_rx_in_bytes:       %llu \n", (long long unsigned int)cntrs.if_rx_in_bytes);
+    printf("   if_rx_ucast_pkts:     %llu \n", (long long unsigned int)cntrs.if_rx_ucast_pkts);
+    printf("   if_rx_multicast_pkts: %llu \n", (long long unsigned int)cntrs.if_rx_multicast_pkts);
+    printf("   if_rx_broadcast_pkts: %llu \n", (long long unsigned int)cntrs.if_rx_broadcast_pkts);
+    printf("   if_rx_discards:       %llu \n", (long long unsigned int)cntrs.if_rx_discards);
+    printf("   if_rx_CRCAlignErrors: %llu \n", (long long unsigned int)cntrs.if_rx_CRCAlignErrors);
+    printf("   if_rx_UndersizePkts:  %llu \n", (long long unsigned int)cntrs.if_rx_UndersizePkts);
+    printf("   if_rx_Fragments:      %llu \n", (long long unsigned int)cntrs.if_rx_Fragments);
+    printf("   if_rx_Jabbers:        %llu \n", (long long unsigned int)cntrs.if_rx_Jabbers);
+    printf("   if_rx_errors:         %llu \n", (long long unsigned int)cntrs.if_rx_errors);
+    printf("\n HOST MAC TX COUNTERS: \n");
+    printf("   if_tx_octets:         %llu \n", (long long unsigned int)cntrs.if_tx_octets);
+    printf("   if_tx_ucast_pkts:     %llu \n", (long long unsigned int)cntrs.if_tx_ucast_pkts);
+    printf("   if_tx_multicast_pkts: %llu \n", (long long unsigned int)cntrs.if_tx_multicast_pkts);
+    printf("   if_tx_broadcast_pkts: %llu \n", (long long unsigned int)cntrs.if_tx_broadcast_pkts);
+    printf("   if_tx_errors:         %llu \n", (long long unsigned int)cntrs.if_tx_errors);
+
+    memset(&cntrs, 0, sizeof(vtss_macsec_mac_counters_t));
+    vtss_macsec_lmac_counters_get(NULL, port_no, &cntrs, false);
+
+    printf("\n LINE MAC RX COUNTERS: Port_no: %d\n", port_no);
+    printf("   if_rx_octets:         %llu \n", (long long unsigned int)cntrs.if_rx_octets);
+    printf("   if_rx_in_bytes:       %llu \n", (long long unsigned int)cntrs.if_rx_in_bytes);
+    printf("   if_rx_ucast_pkts:     %llu \n", (long long unsigned int)cntrs.if_rx_ucast_pkts);
+    printf("   if_rx_multicast_pkts: %llu \n", (long long unsigned int)cntrs.if_rx_multicast_pkts);
+    printf("   if_rx_broadcast_pkts: %llu \n", (long long unsigned int)cntrs.if_rx_broadcast_pkts);
+    printf("   if_rx_discards:       %llu \n", (long long unsigned int)cntrs.if_rx_discards);
+    printf("   if_rx_CRCAlignErrors: %llu \n", (long long unsigned int)cntrs.if_rx_CRCAlignErrors);
+    printf("   if_rx_UndersizePkts:  %llu \n", (long long unsigned int)cntrs.if_rx_UndersizePkts);
+    printf("   if_rx_Fragments:      %llu \n", (long long unsigned int)cntrs.if_rx_Fragments);
+    printf("   if_rx_Jabbers:        %llu \n", (long long unsigned int)cntrs.if_rx_Jabbers);
+    printf("   if_rx_errors:         %llu \n", (long long unsigned int)cntrs.if_rx_errors);
+    printf("\n LINE MAC TX COUNTERS: \n");
+    printf("   if_tx_octets:         %llu \n", (long long unsigned int)cntrs.if_tx_octets);
+    printf("   if_tx_ucast_pkts:     %llu \n", (long long unsigned int)cntrs.if_tx_ucast_pkts);
+    printf("   if_tx_multicast_pkts: %llu \n", (long long unsigned int)cntrs.if_tx_multicast_pkts);
+    printf("   if_tx_broadcast_pkts: %llu \n", (long long unsigned int)cntrs.if_tx_broadcast_pkts);
+    printf("   if_tx_errors:         %llu \n", (long long unsigned int)cntrs.if_tx_errors);
+    
     printf ("\n");
 
     return rc;
@@ -404,6 +485,7 @@ mepa_rc appl_mepa_status_get(mepa_port_no_t port_no)
 mepa_rc appl_mepa_phy_init(mepa_port_no_t port_no, int phy_mode)
 {
     mepa_rc rc = MEPA_RC_OK;
+    mepa_port_interface_t mac_if = MESA_PORT_INTERFACE_NO_CONNECTION;
 
     rc = mepa_conf_get(appl_malibu_device[port_no], &appl_malibu_conf);
     if (rc != MEPA_RC_OK)
@@ -422,10 +504,11 @@ mepa_rc appl_mepa_phy_init(mepa_port_no_t port_no, int phy_mode)
 
             // Assuming SR/LR limiting module on the line side and long traces (> 10 in)
             // or backplane on the host side
-            // oper_mode.h_media = MEPA_MEDIA_TYPE_KR_SC;
-            // oper_mode.l_media = MEPA_MEDIA_TYPE_SR2_SC;
-            appl_malibu_conf.conf_10g.h_media = MEPA_MEDIA_TYPE_KR_SC;
-            appl_malibu_conf.conf_10g.l_media = MEPA_MEDIA_TYPE_SR2_SC;
+            // oper_mode.h_media = VTSS_MEDIA_TYPE_KR_SC;
+            // oper_mode.l_media = VTSS_MEDIA_TYPE_SR2_SC;
+            appl_malibu_conf.conf_10g.h_media = VTSS_MEDIA_TYPE_KR_SC;
+            appl_malibu_conf.conf_10g.l_media = VTSS_MEDIA_TYPE_SR2_SC;
+            mac_if = MESA_PORT_INTERFACE_SFI;
             break;
 
         case PHY_MODE_1G_LAN: /* 1=MODE_1GLAN_CL37; 2=MODE_1G_LAN */
@@ -437,11 +520,11 @@ mepa_rc appl_mepa_phy_init(mepa_port_no_t port_no, int phy_mode)
             appl_malibu_conf.speed = (phy_mode == PHY_MODE_1G_LAN)? MESA_SPEED_1G : MESA_SPEED_AUTO;
 
             // Always use these media settings for 1G LAN data rates
-            // oper_mode.h_media = MEPA_MEDIA_TYPE_SR2_SC;
-            // oper_mode.l_media = MEPA_MEDIA_TYPE_SR2_SC;
-            appl_malibu_conf.conf_10g.h_media = MEPA_MEDIA_TYPE_SR2_SC;
-            appl_malibu_conf.conf_10g.l_media = MEPA_MEDIA_TYPE_SR2_SC;
-
+            // oper_mode.h_media = VTSS_MEDIA_TYPE_SR2_SC;
+            // oper_mode.l_media = VTSS_MEDIA_TYPE_SR2_SC;
+            appl_malibu_conf.conf_10g.h_media = VTSS_MEDIA_TYPE_SR2_SC;
+            appl_malibu_conf.conf_10g.l_media = VTSS_MEDIA_TYPE_SR2_SC;
+            mac_if = MESA_PORT_INTERFACE_SERDES;
             break;
 
         case PHY_MODE_10G_WAN: /* 3=MODE_10GWAN */
@@ -450,32 +533,32 @@ mepa_rc appl_mepa_phy_init(mepa_port_no_t port_no, int phy_mode)
 
             // Assuming SR/LR limiting module on the line side and long traces (> 10 in)
             // or backplane on the host side
-            appl_malibu_conf.conf_10g.h_media = MEPA_MEDIA_TYPE_KR_SC;
-            appl_malibu_conf.conf_10g.l_media = MEPA_MEDIA_TYPE_SR2_SC;
-
+            appl_malibu_conf.conf_10g.h_media = VTSS_MEDIA_TYPE_KR_SC;
+            appl_malibu_conf.conf_10g.l_media = VTSS_MEDIA_TYPE_SR2_SC;
+            mac_if = MESA_PORT_INTERFACE_SFI;
             break;
 
         case PHY_MODE_10G_RPTR:   /* 4=MODE_10G_RPTR */
+            // Note: There is currently no support for 10G Repeater mode through MEPA.
+            // However, since there appears to be support for this in the VTSS APIs, we will use them directly for this mode.
+            // Also note that the repeater modes are configured directly using VTSS APIs further below this function.
             appl_malibu_conf.conf_10g.oper_mode = MEPA_PHY_REPEATER_MODE;
-            // oper_mode.rate = VTSS_RPTR_RATE_10_3125;     // No MEPA type for repeater mode rate as of 2025.12
             appl_malibu_conf.speed = MESA_SPEED_10G;
 
-            appl_malibu_conf.conf_10g.h_media = MEPA_MEDIA_TYPE_DAC;
-            appl_malibu_conf.conf_10g.l_media = MEPA_MEDIA_TYPE_SR2_SC;
+            appl_malibu_conf.conf_10g.h_media = VTSS_MEDIA_TYPE_DAC;
+            appl_malibu_conf.conf_10g.l_media = VTSS_MEDIA_TYPE_SR2_SC;
+            mac_if = MESA_PORT_INTERFACE_SFI;
             break;
 
         case PHY_MODE_1G_RPTR:   /* 5=MODE_1G_RPTR */
+            // Note: As of MESA 2026.06, 1G Repeater is now supported in MEPA, as long as:
+            // the PHY speed is 1G/AUTO, oper_mode is MEPA_PHY_REPEATER, and mac_if is SGMII_CISCO.
             appl_malibu_conf.conf_10g.oper_mode = MEPA_PHY_REPEATER_MODE;
-            // oper_mode.rate = VTSS_RPTR_RATE_1_25;       // No MEPA type for repeater mode rate as of 2025.12
-            #if 1
-                // Note: due to lack of a vtss_rptr_rate_t struct member in the MEPA type phy10g_conf_t,
-                // we can't set the Repeater mode rate through MEPA. We'll use VTSS APIs instead. See below.
-                // Also note we set MESA_SPEED_10G so that mepa_conf_set/phy_10g_conf_set() does not override the oper_mode
-                appl_malibu_conf.speed = MESA_SPEED_10G;
-            #endif
+            appl_malibu_conf.speed = MESA_SPEED_1G;
 
-            appl_malibu_conf.conf_10g.h_media = MEPA_MEDIA_TYPE_DAC;
-            appl_malibu_conf.conf_10g.l_media = MEPA_MEDIA_TYPE_SR2_SC;
+            appl_malibu_conf.conf_10g.h_media = VTSS_MEDIA_TYPE_DAC;
+            appl_malibu_conf.conf_10g.l_media = VTSS_MEDIA_TYPE_SR2_SC;
+            mac_if = MESA_PORT_INTERFACE_SGMII_CISCO;
             break;
 
         default:
@@ -486,6 +569,9 @@ mepa_rc appl_mepa_phy_init(mepa_port_no_t port_no, int phy_mode)
     
     appl_malibu_conf.conf_10g.interface_mode = MEPA_PHY_SFI_XFI;
     appl_malibu_conf.conf_10g.channel_id = MEPA_CHANNELID_NONE;
+
+    // Set admin.enable to ensure RF bits for CL37 get sent with status "LINK_OK"
+    appl_malibu_conf.admin.enable = true;
 
     // Invert polarity of Line/Host Tx/Rx
     // See VSC8258EV Schematics in the product page.
@@ -506,6 +592,16 @@ mepa_rc appl_mepa_phy_init(mepa_port_no_t port_no, int phy_mode)
     appl_malibu_conf.conf_10g.lref_for_host = false;
     appl_malibu_conf.conf_10g.channel_high_to_low = false;
 
+    // Set the MAC IF here before locking the configuration
+    // Note: new function added in 2026.06 - phy_10g_1g_mode_set - checks the mac_if
+    // to determine whether to use repeater mode or 1G mode.
+    rc = mepa_if_set(appl_malibu_device[port_no], mac_if);
+    if (rc != MEPA_RC_OK)
+    {
+        T_E("%s: mepa_if_set() error %d", __func__, rc);
+        return rc;
+    }
+
     rc = mepa_conf_set(appl_malibu_device[port_no], &appl_malibu_conf);
     if (rc != MEPA_RC_OK)
     {
@@ -517,7 +613,7 @@ mepa_rc appl_mepa_phy_init(mepa_port_no_t port_no, int phy_mode)
     // Currently, due to lack of a vtss_rptr_rate_t struct member in the MEPA type phy10g_conf_t,
     // we can't set the Repeater mode rate through MEPA. (as of SW-MEPA 2025.12)
     // So, we will resort to using the VTSS APIs directly for now.
-    if((phy_mode == PHY_MODE_10G_RPTR) || (phy_mode == PHY_MODE_1G_RPTR))
+    if((phy_mode == PHY_MODE_10G_RPTR))
     {
         vtss_phy_10g_mode_t phy_oper_mode = {};
 
@@ -532,8 +628,8 @@ mepa_rc appl_mepa_phy_init(mepa_port_no_t port_no, int phy_mode)
         }
 
         phy_oper_mode.oper_mode = VTSS_PHY_REPEATER_MODE;
-        phy_oper_mode.rate = (phy_mode==PHY_MODE_10G_RPTR)? VTSS_RPTR_RATE_10_3125 : VTSS_RPTR_RATE_1_25;
-        printf("Setting PHY Repeater mode Rate to %s\n", (phy_oper_mode.rate == VTSS_RPTR_RATE_10_3125) ? "10.3125 Gbps" : "1.25 Gbps");
+        phy_oper_mode.rate = VTSS_RPTR_RATE_10_3125;
+        printf("Setting PHY Repeater mode Rate to %s\n", "10.3125 Gbps");
 
         rc = vtss_phy_10g_mode_set(NULL, port_no, &phy_oper_mode);  // Note: vtss_rc is similar to mepa_rc
         if (rc != MEPA_RC_OK)
@@ -541,6 +637,77 @@ mepa_rc appl_mepa_phy_init(mepa_port_no_t port_no, int phy_mode)
             T_E("%s: vtss_phy_10g_mode_set() error %d", __func__, rc);
             return rc;
         }
+    }
+
+#if 0
+    // Manually configure CL37 ANEG through VTSS APIs, since
+    // MEPA doesn't expose all vtss_phy_10g_clause_37_control_t attributes.
+    // Snippet below may be useful for testing specific CL37 ANEG configs through the API.
+    if (phy_mode == PHY_MODE_1G_LAN_CL37)
+    {
+        // 1G Auto Negotiation
+        printf("\nConfiguring 1G Auto Negotiation, port %d:\n", port_no);
+
+        vtss_phy_10g_mode_t phy_oper_mode = {};
+        vtss_phy_10g_mode_get(NULL, port_no, &phy_oper_mode);
+        phy_oper_mode.oper_mode = VTSS_PHY_1G_MODE;
+        phy_oper_mode.interface = VTSS_PHY_SFI_XFI;
+        phy_oper_mode.channel_id = VTSS_CHANNEL_AUTO;
+        // Invert Polarity of Line/Host Tx/Rx
+        phy_oper_mode.polarity.line_rx = FALSE;
+        phy_oper_mode.polarity.line_tx = (port_no < 2)? false : true;;
+        phy_oper_mode.polarity.host_rx = FALSE;
+        phy_oper_mode.polarity.host_tx = FALSE;
+        // H/LREFCLK is_high_amp :
+        // --> TRUE (1100mV to 2400mV diff swing)
+        // --> FALSE (200mV to 1200mV diff swing)
+        phy_oper_mode.h_clk_src.is_high_amp = TRUE;
+        phy_oper_mode.l_clk_src.is_high_amp = TRUE;
+
+        vtss_phy_10g_mode_set(NULL, port_no, &phy_oper_mode);
+        vtss_phy_10g_sgmii_mode_set(NULL, port_no, FALSE);
+
+        vtss_phy_10g_clause_37_control_t ctrl;
+        memset(&ctrl, 0, sizeof(vtss_phy_10g_clause_37_control_t));
+        ctrl.enable = true;
+        ctrl.line = true;
+        ctrl.host = false;
+        ctrl.l_h = false;
+        ctrl.advertisement.fdx = true;
+        ctrl.advertisement.hdx = false;
+        ctrl.advertisement.symmetric_pause = false; /* Enable or Disable Flowcontrol */
+        ctrl.advertisement.asymmetric_pause = false; /* Enable or Disable Flowcontrol */
+        ctrl.advertisement.remote_fault =  false;
+        ctrl.advertisement.acknowledge =  false;
+        ctrl.advertisement.next_page =  false;
+
+        if (vtss_phy_10g_clause_37_control_set(NULL, port_no, &ctrl) != VTSS_RC_OK)
+        {
+            T_E("vtss_phy_10g_clause_37_control_set failed, port %d\n", port_no);
+            printf("vtss_phy_10g_clause_37_control_set failed, port %d\n", port_no);
+        }
+    }
+#endif
+
+    // Set the 1588 block to PKT_MODE
+    // to allow 1G traffic to flow.
+    if((appl_malibu_conf.conf_10g.oper_mode == MEPA_PHY_1G_MODE) && (port_no > 1))
+    {
+        uint32_t val32 = 0x4;
+        uint16_t dev = 0x1e;
+        uint16_t addr = 0x9002;
+
+        // Note: Since there are no MEPA functions that will allow PHY register access specifically through
+        // SPI, we call the SPI callout directly through the wrapper function below.
+        appl_spi_read_write(&appl_rpi_spi, &appl_callout_ctx[port_no], dev, addr, &val32, true);
+        printf("\nRegister 0x%X:0x%04X: 0x%X\n\n", dev, addr, val32);
+
+        addr = 0x9202;
+        appl_spi_read_write(&appl_rpi_spi, &appl_callout_ctx[port_no], dev, addr, &val32, true);
+        printf("\nRegister 0x%X:0x%04X: 0x%X\n\n", dev, addr, val32);
+
+        // Note: calling mepa_clause45_read/write() with only SPI Callouts provided will resolve to SPI calls, but the API
+        // function itself will truncate the read value to 16-bits as it only accepts a pointer to a uint16_t type.
     }
     
     return rc;
@@ -1389,6 +1556,11 @@ bool appl_malibu_synce_cntrl(mepa_port_no_t   port_no)
     // as the internal APIs treat this as the default instance (see vtss_phy_inst_check())
 
     printf("Raspberry Pi 5 Malibu Code.\r\n");
+    printf("Resetting PHY through RESETN through GPIO25...\n");
+    // On Raspberry Pi 5, GPIO25 is mapped to gpiochip0
+    gpiod_ctxless_set_value("0", 25, 0, 0, "malibu_custom", NULL, NULL);
+    usleep(100000); // 100ms
+    gpiod_ctxless_set_value("0", 25, 1, 0, "malibu_custom", NULL, NULL);
 
     appl_set_trace();
 
