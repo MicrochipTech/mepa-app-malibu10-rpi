@@ -12,15 +12,16 @@
 #   -DAPPL_TRACE_LVL_NONE
 
 INCLUDES="-I include_common/ -I src/"
-SOURCES="src/mepa_appl_custom_malibu.c src/rpi_spi.c src/io_test.c "
+SOURCES="src/mepa_appl_custom_malibu.c src/rpi_spi.c src/io_test.c src/rpi_gpio.c"
 DEBUGBUILD="-g"
 ERRORCHECK="-W -Werror -Wall"
 WARNINGCHECK="-Wno-error=implicit-function-declaration -Wno-error=int-conversion -Wno-error=incompatible-pointer-types"
-STATICLIBS="mepa/libmepa.a mepa/libmepa_common.a mepa/vtss/libmepa_drv_vtss_custom.a"
+STATICLIBS="mepa/libmepa.a mepa/libmepa_common.a mepa/vtss/libmepa_drv_vtss_custom.a mesa/libvsc7512.a"
 MACROS="-DAPPL_TRACE_LVL_ERROR"
+# EXTRACFLAGS="-DLIBGPIOD_V2"
 LIBGPIOD="-lgpiod"
 
-COMPILECOMMAND="gcc $INCLUDES $SOURCES $DEBUGBUILD $WARNINGCHECK $STATICLIBS $MACROS $LIBGPIOD -o malibu_custom"
+COMPILECOMMAND="gcc $INCLUDES $SOURCES $DEBUGBUILD $WARNINGCHECK $STATICLIBS $MACROS $EXTRACFLAGS $LIBGPIOD -o malibu_custom"
 echo $COMPILECOMMAND
 echo ""
 $COMPILECOMMAND

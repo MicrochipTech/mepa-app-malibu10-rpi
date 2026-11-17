@@ -35,7 +35,6 @@
 #include <ctype.h>      // For isprint(), used in "sfpdump" command
 #include <errno.h>
 #include <time.h>
-#include <gpiod.h>      // For control of the VSC8258EV RST
 
 // MEPA includes
 #include "microchip/ethernet/phy/api.h"
@@ -44,6 +43,7 @@
 
 // Other includes
 #include "rpi_spi.h"        // For the SPI accessor functions
+#include "rpi_gpio.h"       // For the RPi GPIO shim functions
 #include "io_test.h"        // For the IO Test
 
 // *****************************************************************************
@@ -299,11 +299,13 @@ mepa_rc appl_mepa_status_get(mepa_port_no_t port_no)
 {
     mepa_rc rc = MEPA_RC_OK;
 
-#if 0
+#if 1
     mepa_status_t appl_status = {};
     rc = mepa_poll(appl_malibu_device[port_no], &appl_status);
-    printf("Port: %d, rc: %d, Speed: %s, fdx: %s, Cu: %s, Fi: %s, Link: %s\n", port_no, rc, portspeed2txt[appl_status.speed], \
-            appl_status.fdx? "Yes":"No", appl_status.copper? "Yes":"No", appl_status.fiber? "Yes":"No", appl_status.link? "Up" : "Down");
+    printf("MEPA Status:\n");
+    printf("Port %d --- Speed: %s, %s, Media: %s, Link: %s\n", port_no, portspeed2txt[appl_status.speed], \
+            (appl_status.fdx? "Full Duplex":"Half Duplex"), (appl_status.copper? "Copper":appl_status.fiber? "Fiber":"Unknown"), appl_status.link? "Up" : "Down");
+    printf("\n");
 #endif
 
     // Note: mepa_poll() calls vtss.c > phy_10g_poll(), which calls vtss_phy_10g_status_get().
@@ -430,52 +432,72 @@ mepa_rc appl_mepa_status_get(mepa_port_no_t port_no)
         printf ("%-20s %-12d\n", "  Ber_cnt:", cnt.pcs.ber_cnt);
         printf ("%-20s %-12d\n", "  Err_blk_cnt:", cnt.pcs.err_blk_cnt);
     }
+
+    // Show 10G counters from vtss_phy_10g_pkt_mon_counters_get
+    // Ref: https://support.microchip.com/s/article/VSC-10G-PHY-VSC8489-90-91-and-VSC8254-57-58-Counters
+    vtss_phy_10g_pkt_mon_conf_t pkt_conf = {};
+    pkt_conf.enable = true;
+    pkt_conf.update = true;
+    vtss_phy_10g_pkt_mon_counters_get(NULL, port_no, &pkt_conf);
+    if(oper_mode == MEPA_PHY_LAN_MODE)
+    {
+        printf ("\nFIFO_MON_BIST counters (line side):\n");
+        printf ("%-25s %llu\n", "  Good CRC:",             (long long unsigned int) pkt_conf.good_crc);
+        printf ("%-25s %llu\n", "  Bad CRC:",              (long long unsigned int) pkt_conf.bad_crc);
+        printf ("%-25s %llu\n", "  Fragmented Packets:",   (long long unsigned int) pkt_conf.frag);
+        printf ("%-25s %llu\n", "  Local fault packets:",  (long long unsigned int) pkt_conf.lfault);
+        printf ("%-25s %llu\n", "  BER count:",            (long long unsigned int) pkt_conf.ber);
+    }
     
-    // Check MAC statistics (ref: phy_demo_appl/appl/vtss_appl_macsec_demo.c)
-    vtss_macsec_mac_counters_t     cntrs;
-    memset(&cntrs, 0, sizeof(vtss_macsec_mac_counters_t));
-    vtss_macsec_hmac_counters_get(NULL, port_no, &cntrs, false);
+    // Check MAC statistics (ref: vtss_appl_macsec_demo.c)
+    // Printed on 1G modes, since the Host and Line MACs are in the Datapath in 1G modes.
+    if(oper_mode == MEPA_PHY_1G_MODE)
+    {
+        vtss_macsec_mac_counters_t     cntrs;
+        memset(&cntrs, 0, sizeof(vtss_macsec_mac_counters_t));
+        vtss_macsec_hmac_counters_get(NULL, port_no, &cntrs, false);
 
-    printf("\n HOST MAC RX COUNTERS: Port_no: %d\n", port_no);
-    printf("   if_rx_octets:         %llu \n", (long long unsigned int)cntrs.if_rx_octets);
-    printf("   if_rx_in_bytes:       %llu \n", (long long unsigned int)cntrs.if_rx_in_bytes);
-    printf("   if_rx_ucast_pkts:     %llu \n", (long long unsigned int)cntrs.if_rx_ucast_pkts);
-    printf("   if_rx_multicast_pkts: %llu \n", (long long unsigned int)cntrs.if_rx_multicast_pkts);
-    printf("   if_rx_broadcast_pkts: %llu \n", (long long unsigned int)cntrs.if_rx_broadcast_pkts);
-    printf("   if_rx_discards:       %llu \n", (long long unsigned int)cntrs.if_rx_discards);
-    printf("   if_rx_CRCAlignErrors: %llu \n", (long long unsigned int)cntrs.if_rx_CRCAlignErrors);
-    printf("   if_rx_UndersizePkts:  %llu \n", (long long unsigned int)cntrs.if_rx_UndersizePkts);
-    printf("   if_rx_Fragments:      %llu \n", (long long unsigned int)cntrs.if_rx_Fragments);
-    printf("   if_rx_Jabbers:        %llu \n", (long long unsigned int)cntrs.if_rx_Jabbers);
-    printf("   if_rx_errors:         %llu \n", (long long unsigned int)cntrs.if_rx_errors);
-    printf("\n HOST MAC TX COUNTERS: \n");
-    printf("   if_tx_octets:         %llu \n", (long long unsigned int)cntrs.if_tx_octets);
-    printf("   if_tx_ucast_pkts:     %llu \n", (long long unsigned int)cntrs.if_tx_ucast_pkts);
-    printf("   if_tx_multicast_pkts: %llu \n", (long long unsigned int)cntrs.if_tx_multicast_pkts);
-    printf("   if_tx_broadcast_pkts: %llu \n", (long long unsigned int)cntrs.if_tx_broadcast_pkts);
-    printf("   if_tx_errors:         %llu \n", (long long unsigned int)cntrs.if_tx_errors);
+        printf("\n HOST MAC RX COUNTERS: Port_no: %d\n", port_no);
+        printf("   if_rx_octets:         %llu \n", (long long unsigned int)cntrs.if_rx_octets);
+        printf("   if_rx_in_bytes:       %llu \n", (long long unsigned int)cntrs.if_rx_in_bytes);
+        printf("   if_rx_ucast_pkts:     %llu \n", (long long unsigned int)cntrs.if_rx_ucast_pkts);
+        printf("   if_rx_multicast_pkts: %llu \n", (long long unsigned int)cntrs.if_rx_multicast_pkts);
+        printf("   if_rx_broadcast_pkts: %llu \n", (long long unsigned int)cntrs.if_rx_broadcast_pkts);
+        printf("   if_rx_discards:       %llu \n", (long long unsigned int)cntrs.if_rx_discards);
+        printf("   if_rx_CRCAlignErrors: %llu \n", (long long unsigned int)cntrs.if_rx_CRCAlignErrors);
+        printf("   if_rx_UndersizePkts:  %llu \n", (long long unsigned int)cntrs.if_rx_UndersizePkts);
+        printf("   if_rx_Fragments:      %llu \n", (long long unsigned int)cntrs.if_rx_Fragments);
+        printf("   if_rx_Jabbers:        %llu \n", (long long unsigned int)cntrs.if_rx_Jabbers);
+        printf("   if_rx_errors:         %llu \n", (long long unsigned int)cntrs.if_rx_errors);
+        printf("\n HOST MAC TX COUNTERS: \n");
+        printf("   if_tx_octets:         %llu \n", (long long unsigned int)cntrs.if_tx_octets);
+        printf("   if_tx_ucast_pkts:     %llu \n", (long long unsigned int)cntrs.if_tx_ucast_pkts);
+        printf("   if_tx_multicast_pkts: %llu \n", (long long unsigned int)cntrs.if_tx_multicast_pkts);
+        printf("   if_tx_broadcast_pkts: %llu \n", (long long unsigned int)cntrs.if_tx_broadcast_pkts);
+        printf("   if_tx_errors:         %llu \n", (long long unsigned int)cntrs.if_tx_errors);
 
-    memset(&cntrs, 0, sizeof(vtss_macsec_mac_counters_t));
-    vtss_macsec_lmac_counters_get(NULL, port_no, &cntrs, false);
+        memset(&cntrs, 0, sizeof(vtss_macsec_mac_counters_t));
+        vtss_macsec_lmac_counters_get(NULL, port_no, &cntrs, false);
 
-    printf("\n LINE MAC RX COUNTERS: Port_no: %d\n", port_no);
-    printf("   if_rx_octets:         %llu \n", (long long unsigned int)cntrs.if_rx_octets);
-    printf("   if_rx_in_bytes:       %llu \n", (long long unsigned int)cntrs.if_rx_in_bytes);
-    printf("   if_rx_ucast_pkts:     %llu \n", (long long unsigned int)cntrs.if_rx_ucast_pkts);
-    printf("   if_rx_multicast_pkts: %llu \n", (long long unsigned int)cntrs.if_rx_multicast_pkts);
-    printf("   if_rx_broadcast_pkts: %llu \n", (long long unsigned int)cntrs.if_rx_broadcast_pkts);
-    printf("   if_rx_discards:       %llu \n", (long long unsigned int)cntrs.if_rx_discards);
-    printf("   if_rx_CRCAlignErrors: %llu \n", (long long unsigned int)cntrs.if_rx_CRCAlignErrors);
-    printf("   if_rx_UndersizePkts:  %llu \n", (long long unsigned int)cntrs.if_rx_UndersizePkts);
-    printf("   if_rx_Fragments:      %llu \n", (long long unsigned int)cntrs.if_rx_Fragments);
-    printf("   if_rx_Jabbers:        %llu \n", (long long unsigned int)cntrs.if_rx_Jabbers);
-    printf("   if_rx_errors:         %llu \n", (long long unsigned int)cntrs.if_rx_errors);
-    printf("\n LINE MAC TX COUNTERS: \n");
-    printf("   if_tx_octets:         %llu \n", (long long unsigned int)cntrs.if_tx_octets);
-    printf("   if_tx_ucast_pkts:     %llu \n", (long long unsigned int)cntrs.if_tx_ucast_pkts);
-    printf("   if_tx_multicast_pkts: %llu \n", (long long unsigned int)cntrs.if_tx_multicast_pkts);
-    printf("   if_tx_broadcast_pkts: %llu \n", (long long unsigned int)cntrs.if_tx_broadcast_pkts);
-    printf("   if_tx_errors:         %llu \n", (long long unsigned int)cntrs.if_tx_errors);
+        printf("\n LINE MAC RX COUNTERS: Port_no: %d\n", port_no);
+        printf("   if_rx_octets:         %llu \n", (long long unsigned int)cntrs.if_rx_octets);
+        printf("   if_rx_in_bytes:       %llu \n", (long long unsigned int)cntrs.if_rx_in_bytes);
+        printf("   if_rx_ucast_pkts:     %llu \n", (long long unsigned int)cntrs.if_rx_ucast_pkts);
+        printf("   if_rx_multicast_pkts: %llu \n", (long long unsigned int)cntrs.if_rx_multicast_pkts);
+        printf("   if_rx_broadcast_pkts: %llu \n", (long long unsigned int)cntrs.if_rx_broadcast_pkts);
+        printf("   if_rx_discards:       %llu \n", (long long unsigned int)cntrs.if_rx_discards);
+        printf("   if_rx_CRCAlignErrors: %llu \n", (long long unsigned int)cntrs.if_rx_CRCAlignErrors);
+        printf("   if_rx_UndersizePkts:  %llu \n", (long long unsigned int)cntrs.if_rx_UndersizePkts);
+        printf("   if_rx_Fragments:      %llu \n", (long long unsigned int)cntrs.if_rx_Fragments);
+        printf("   if_rx_Jabbers:        %llu \n", (long long unsigned int)cntrs.if_rx_Jabbers);
+        printf("   if_rx_errors:         %llu \n", (long long unsigned int)cntrs.if_rx_errors);
+        printf("\n LINE MAC TX COUNTERS: \n");
+        printf("   if_tx_octets:         %llu \n", (long long unsigned int)cntrs.if_tx_octets);
+        printf("   if_tx_ucast_pkts:     %llu \n", (long long unsigned int)cntrs.if_tx_ucast_pkts);
+        printf("   if_tx_multicast_pkts: %llu \n", (long long unsigned int)cntrs.if_tx_multicast_pkts);
+        printf("   if_tx_broadcast_pkts: %llu \n", (long long unsigned int)cntrs.if_tx_broadcast_pkts);
+        printf("   if_tx_errors:         %llu \n", (long long unsigned int)cntrs.if_tx_errors);
+    }
     
     printf ("\n");
 
@@ -1558,9 +1580,9 @@ bool appl_malibu_synce_cntrl(mepa_port_no_t   port_no)
     printf("Raspberry Pi 5 Malibu Code.\r\n");
     printf("Resetting PHY through RESETN through GPIO25...\n");
     // On Raspberry Pi 5, GPIO25 is mapped to gpiochip0
-    gpiod_ctxless_set_value("0", 25, 0, 0, "malibu_custom", NULL, NULL);
+    gpio_set(25, 0);
     usleep(100000); // 100ms
-    gpiod_ctxless_set_value("0", 25, 1, 0, "malibu_custom", NULL, NULL);
+    gpio_set(25, 1);
 
     appl_set_trace();
 
@@ -1757,7 +1779,7 @@ bool appl_malibu_synce_cntrl(mepa_port_no_t   port_no)
             mepa_debug_info_t mepa_dbg;
             memset (&mepa_dbg, 0, sizeof(mepa_debug_info_t));
             mepa_dbg.full = 1;
-            mepa_dbg.clear = 1;
+            mepa_dbg.clear = 0;
             mepa_dbg.vml_format = 0;
 
             mepa_dbg.layer = MEPA_DEBUG_LAYER_ALL;   // All Layers or CIL or AIL

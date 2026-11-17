@@ -12,3 +12,5 @@ mesa/
 mesa-ag/
 cmake_target_db.txt
 utils/
+cmake_target_db_full.txt
+compile_commands.json

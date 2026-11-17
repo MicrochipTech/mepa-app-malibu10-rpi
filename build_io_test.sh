@@ -6,7 +6,7 @@ INCLUDES="-I include_common/ -I src/"
 SOURCES="src/malibu_io_test.c src/rpi_spi.c src/io_test.c"
 DEBUGBUILD="-g"
 ERRORCHECK="-W -Werror -Wall"
-STATICLIBS="mepa/libmepa.a mepa/libmepa_common.a mepa/vtss/libmepa_drv_vtss_custom.a"
+STATICLIBS="mepa/libmepa.a mepa/libmepa_common.a mepa/vtss/libmepa_drv_vtss_custom.a mesa/libvsc7512.a"
 
 COMPILECOMMAND="gcc $INCLUDES $SOURCES $DEBUGBUILD $STATICLIBS -o malibu_io_test"
 echo $COMPILECOMMAND
